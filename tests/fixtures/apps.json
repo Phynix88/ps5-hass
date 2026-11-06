@@ -1,0 +1,8 @@
+[
+  {"title_id": "PPSA00001", "name": "Test Game One", "version": "01.007.000", "kind": "game", "category": 0, "has_icon": true},
+  {"title_id": "PPSA00002", "name": "Another Game", "version": "01.000.000", "kind": "game", "category": 0, "has_icon": true},
+  {"title_id": "PPSA96708", "name": "Hikari", "version": "00.002.000", "kind": "app", "category": 65536, "has_icon": true},
+  {"title_id": "PPSA99169", "name": "RetroArch", "version": "01.000.000", "kind": "app", "category": 0, "has_icon": true},
+  {"title_id": "ORBT00001", "name": "Orbit Store", "version": null, "kind": "app", "category": 65536, "has_icon": true},
+  {"title_id": "PPSA99177", "name": "Orbit Store", "version": "01.007.000", "kind": "app", "category": 0, "has_icon": false}
+]

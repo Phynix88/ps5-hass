@@ -1,0 +1,5 @@
+{
+  "name": "PS5 (ps5-hass)",
+  "homeassistant": "2026.10.0",
+  "render_readme": true
+}

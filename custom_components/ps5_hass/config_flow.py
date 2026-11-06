@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -253,6 +253,7 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
     def __init__(self) -> None:
         self._names: dict[str, str] = {}
         self._pending: list[str] = []  # permissions waiting for the TV code
+        self._perms: dict[str, dict[str, bool]] | None = None  # what the form shows
         self._placeholders: dict[str, str] = {}
 
     async def async_step_init(
@@ -339,25 +340,37 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         stored = self.config_entry.data.get(CONF_INFO, {}).get("permissions")
+        if user_input is not None and self._perms is not None:
+            return await self._apply_permissions(self._perms, user_input)
         try:
             info = await self._client().info()
         except (CannotConnect, ApiError, AuthError):
             if stored is None:
-                return self.async_abort(reason="payload_too_old")
+                return self.async_abort(reason="cannot_connect")
             return self._permissions_form(stored, {"base": "cannot_connect"})
         perms = info.get("permissions")
         if perms is None:
             return self.async_abort(reason="payload_too_old")
+        self._perms = perms
         if user_input is None:
             return self._permissions_form(perms, {})
+        return await self._apply_permissions(perms, user_input)
+
+    async def _apply_permissions(
+        self, perms: dict[str, dict[str, bool]], user_input: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Revoke and grant against the permissions the form was built from."""
         allowed = {n for n in PERMISSIONS if perms[n]["allowed"]}
         shown = [n for n in PERMISSIONS if perms[n]["available"]]
         wanted = {n for n in shown if user_input.get(n)}
         revoke = [n for n in shown if n in allowed and n not in wanted]
         grant = [n for n in shown if n in wanted and n not in allowed]
+        if not revoke and not grant:
+            # nothing to do: no call, no reload
+            return self.async_create_entry(data=dict(self.config_entry.options))
         try:
             if revoke:
-                perms = await self._client().grant_revoke(revoke)
+                perms = self._perms = await self._client().grant_revoke(revoke)
                 # the console changed: entities must follow even if the grant
                 # below fails or the dialog is closed
                 await self._store_info(perms)
@@ -368,25 +381,28 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
         except CannotConnect:
             return self._permissions_form(perms, {"base": "cannot_connect"})
         except (ApiError, AuthError) as err:
-            if isinstance(err, ApiError) and err.code == "already_allowed":
-                return await self._permissions_done()
-            abort = self._grant_abort(err)
-            if abort:
-                return abort
-            return self._permissions_form(perms, self._grant_error(err))
+            return await self._grant_failed(err, lambda e: self._permissions_form(perms, e))
         return self._grant_form({})
 
-    def _grant_abort(self, err: Exception) -> ConfigFlowResult | None:
-        if isinstance(err, ApiError) and err.code == "locked":
+    async def _grant_failed(
+        self, err: ApiError | AuthError, form: Callable[[dict[str, str]], ConfigFlowResult]
+    ) -> ConfigFlowResult:
+        """Abort, finish or show `form` with an error, depending on the answer."""
+        if isinstance(err, AuthError):
+            self.config_entry.async_start_reauth(self.hass)
+            return self.async_abort(reason="reauth_required")
+        if err.code == "already_allowed":
+            return await self._permissions_done()
+        if err.code == "locked":
             minutes = max(1, round((err.retry_after or 0) / 60))
             return self.async_abort(
                 reason="locked", description_placeholders={"minutes": str(minutes)}
             )
-        return None
+        if err.code in ("notify_failed", "random_unavailable"):
+            return self.async_abort(reason="cannot_show_code")
+        return form(self._grant_error(err))
 
-    def _grant_error(self, err: Exception) -> dict[str, str]:
-        if not isinstance(err, ApiError):
-            return {"base": "cannot_connect"}
+    def _grant_error(self, err: ApiError) -> dict[str, str]:
         if err.code == "wrong_code":
             self._placeholders["attempts_left"] = str(err.attempts_left or 0)
             return {"base": "wrong_code"}
@@ -395,6 +411,12 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
         if err.code == "rate_limited":
             self._placeholders["retry_after"] = str(err.retry_after or 30)
             return {"base": "rate_limited"}
+        if err.code == "not_available":
+            return {"base": "not_available"}
+        if err.code == "bad_request":
+            return {"base": "invalid_code"}
+        if err.code == "internal":
+            return {"base": "save_failed"}
         return {"base": "cannot_connect"}
 
     def _grant_form(self, errors: dict[str, str]) -> ConfigFlowResult:
@@ -418,18 +440,18 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         if user_input is None:
             return self._grant_form({})
+        code = user_input.get("code", "").strip()
+        if not user_input.get("new_code") and not (len(code) == 6 and code.isdigit()):
+            return self._grant_form({"base": "invalid_code"})
         try:
             if user_input.get("new_code"):
                 await self._client().grant_start(self._pending)
                 return self._grant_form({})
-            await self._client().grant_finish(user_input.get("code", "").strip())
+            await self._client().grant_finish(code)
         except CannotConnect:
             return self._grant_form({"base": "cannot_connect"})
         except (ApiError, AuthError) as err:
-            abort = self._grant_abort(err)
-            if abort:
-                return abort
-            return self._grant_form(self._grant_error(err))
+            return await self._grant_failed(err, self._grant_form)
         return await self._permissions_done()
 
     async def _store_info(self, perms: dict[str, dict[str, bool]] | None = None) -> None:

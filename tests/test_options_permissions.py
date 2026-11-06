@@ -222,3 +222,95 @@ def test_permissions_description_explains_hidden_ones() -> None:
         assert "cannot do are not shown" in text
     de = json.loads((comp / "translations/de.json").read_text())
     assert "nicht angezeigt" in de["options"]["step"]["permissions"]["description"]
+
+
+async def _tick_power_actions(hass, entry):
+    result = await _open_permissions(hass, entry)
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"power_actions": True, "power_off": False, "fan_control": False}
+    )
+
+
+async def test_grant_notify_failed_aborts_cannot_show_code(hass, fake) -> None:
+    entry = await _setup(hass, fake)
+    fake.fail["/grant/start"] = (500, {"error": "notify_failed"})
+    result = await _tick_power_actions(hass, entry)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "cannot_show_code"
+
+
+async def test_grant_not_available_error(hass, fake) -> None:
+    entry = await _setup(hass, fake)
+    fake.fail["/grant/start"] = (409, {"error": "not_available"})
+    result = await _tick_power_actions(hass, entry)
+    assert result["errors"] == {"base": "not_available"}
+
+
+async def test_grant_code_must_be_6_digits(hass, fake) -> None:
+    entry = await _setup(hass, fake)
+    result = await _tick_power_actions(hass, entry)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"code": "12345", "new_code": False}
+    )
+    assert result["errors"] == {"base": "invalid_code"}
+    assert "/grant/finish" not in _grant_calls(fake)
+
+
+async def test_grant_finish_save_failed(hass, fake) -> None:
+    entry = await _setup(hass, fake)
+    result = await _tick_power_actions(hass, entry)
+    fake.fail["/grant/finish"] = (500, {"error": "internal"})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"code": fake.grant_code, "new_code": False}
+    )
+    assert result["errors"] == {"base": "save_failed"}
+
+
+async def test_grant_auth_error_starts_reauth(hass, fake) -> None:
+    from homeassistant.config_entries import SOURCE_REAUTH
+
+    entry = await _setup(hass, fake)
+    result = await _open_permissions(hass, entry)
+    fake.tokens.clear()
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"power_actions": True, "power_off": False, "fan_control": False}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_required"
+    await hass.async_block_till_done()
+    assert len(list(entry.async_get_active_flows(hass, {SOURCE_REAUTH}))) == 1
+
+
+async def test_already_allowed_after_new_code_finishes(hass, fake) -> None:
+    entry = await _setup(hass, fake)
+    result = await _tick_power_actions(hass, entry)
+    fake.fail["/grant/start"] = (409, {"error": "already_allowed"})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"code": "", "new_code": True}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_nothing_changed_no_reload(hass, fake) -> None:
+    fake.power_off = True
+    entry = await _setup(hass, fake)
+    first = entry.runtime_data
+    result = await _open_permissions(hass, entry)
+    before = len(fake.calls)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"power_actions": False, "power_off": True, "fan_control": False}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert fake.calls[before:] == []
+    assert entry.runtime_data is first
+
+
+async def test_v02_entry_console_off_is_cannot_connect(hass, fake) -> None:
+    fake.legacy_v02 = True
+    entry = await _setup(hass, fake)
+    assert "permissions" not in entry.data[CONF_INFO]
+    fake.down = True
+    result = await _open_permissions(hass, entry)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"

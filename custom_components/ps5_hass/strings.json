@@ -94,11 +94,17 @@
       "cannot_connect": "Cannot reach the payload. Is the console on and the payload loaded?",
       "wrong_code": "Wrong code. {attempts_left} attempts left.",
       "code_expired": "The code has expired or is used up. Tick \"Show a new code\".",
-      "rate_limited": "Please wait {retry_after} seconds before asking for a new code."
+      "rate_limited": "Please wait {retry_after} seconds before asking for a new code.",
+      "not_available": "The console cannot do this.",
+      "invalid_code": "Enter the 6 digits from the TV.",
+      "save_failed": "The console could not save the permission. Ask for a new code and try again."
     },
     "abort": {
       "payload_too_old": "The payload on the console is too old. Update it to v0.3.0 or later, or set the permissions in config.json on the console.",
-      "locked": "Granting is locked for {minutes} minutes after too many wrong codes."
+      "locked": "Granting is locked for {minutes} minutes after too many wrong codes.",
+      "cannot_connect": "Cannot reach the payload. Is the console on and the payload loaded?",
+      "cannot_show_code": "The console cannot show a code (notification or randomness unavailable).",
+      "reauth_required": "The console no longer accepts this pairing. Pair again: Home Assistant shows a notice."
     }
   },
   "selector": {
@@ -126,7 +132,7 @@
       "message": "No user is logged in on the PS5."
     },
     "power_actions_disabled": {
-      "message": "Rest mode is not allowed: set power_actions to true in config.json on the console."
+      "message": "Rest mode is not allowed: allow it in the PS5 options (Console permissions) or set power_actions to true in config.json on the console."
     },
     "other_app_running": {
       "message": "Another app is running on the PS5."
@@ -147,10 +153,10 @@
       "message": "Too many requests to the PS5. Try again in {retry_after} s."
     },
     "power_off_disabled": {
-      "message": "Powering off is not allowed: set power_off to true in config.json on the console."
+      "message": "Powering off is not allowed: allow it in the PS5 options (Console permissions) or set power_off to true in config.json on the console."
     },
     "fan_control_disabled": {
-      "message": "Fan control is not allowed: set fan_control to true in config.json on the console."
+      "message": "Fan control is not allowed: allow it in the PS5 options (Console permissions) or set fan_control to true in config.json on the console."
     },
     "fan_above_stock": {
       "message": "The PS5 does not allow a threshold above its own factory value."

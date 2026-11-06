@@ -76,6 +76,19 @@ async def test_back_online_reads_info_and_reloads_on_power_actions_change(
     assert entry.runtime_data.info["power_actions"] is True
 
 
+async def test_back_online_reloads_on_permissions_change(hass, fake, freezer) -> None:
+    entry = await _setup(hass, fake)
+    first = entry.runtime_data
+    fake.down = True
+    with patch(DDP, AsyncMock(return_value="on")):
+        await tick_until(hass, freezer, lambda: not entry.runtime_data.state.data.payload)
+        fake.available["power_off"] = False  # only /info.permissions changes
+        fake.down = False
+        await tick_until(hass, freezer, lambda: entry.runtime_data is not first)
+        await hass.async_block_till_done()
+    assert entry.data["info"]["permissions"]["power_off"]["available"] is False
+
+
 async def test_401_starts_reauth_once(hass, fake, freezer) -> None:
     await _setup(hass, fake)
     fake.tokens.clear()

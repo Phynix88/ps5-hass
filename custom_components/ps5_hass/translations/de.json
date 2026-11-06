@@ -94,11 +94,17 @@
       "cannot_connect": "Payload nicht erreichbar. Ist die Konsole an und der Payload geladen?",
       "wrong_code": "Falscher Code. Noch {attempts_left} Versuche.",
       "code_expired": "Der Code ist abgelaufen oder aufgebraucht. Setze das Häkchen „Neuen Code anzeigen“.",
-      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor du einen neuen Code anforderst."
+      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor du einen neuen Code anforderst.",
+      "not_available": "Das kann die Konsole nicht.",
+      "invalid_code": "Gib die 6 Ziffern vom Fernseher ein.",
+      "save_failed": "Die Konsole konnte die Freigabe nicht speichern. Fordere einen neuen Code an und versuche es noch einmal."
     },
     "abort": {
       "payload_too_old": "Der Payload auf der Konsole ist zu alt. Aktualisiere ihn auf v0.3.0 oder neuer, oder setze die Freigaben in config.json auf der Konsole.",
-      "locked": "Freigeben ist nach zu vielen falschen Codes für {minutes} Minuten gesperrt."
+      "locked": "Freigeben ist nach zu vielen falschen Codes für {minutes} Minuten gesperrt.",
+      "cannot_connect": "Payload nicht erreichbar. Ist die Konsole an und der Payload geladen?",
+      "cannot_show_code": "Die Konsole kann keinen Code anzeigen (Benachrichtigung oder Zufall nicht verfügbar).",
+      "reauth_required": "Die Konsole kennt diese Kopplung nicht mehr. Koppele neu: Home Assistant zeigt einen Hinweis."
     }
   },
   "selector": {
@@ -126,7 +132,7 @@
       "message": "Auf der PS5 ist kein Benutzer angemeldet."
     },
     "power_actions_disabled": {
-      "message": "Ruhemodus nicht erlaubt: power_actions in config.json auf der Konsole auf true setzen."
+      "message": "Ruhemodus ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder power_actions in config.json auf der Konsole auf true setzen."
     },
     "other_app_running": {
       "message": "Auf der PS5 läuft eine andere App."
@@ -147,10 +153,10 @@
       "message": "Zu viele Anfragen an die PS5. In {retry_after} s erneut versuchen."
     },
     "power_off_disabled": {
-      "message": "Ausschalten nicht erlaubt: power_off in config.json auf der Konsole auf true setzen."
+      "message": "Ausschalten ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder power_off in config.json auf der Konsole auf true setzen."
     },
     "fan_control_disabled": {
-      "message": "Lüftersteuerung nicht erlaubt: fan_control in config.json auf der Konsole auf true setzen."
+      "message": "Lüftersteuerung ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder fan_control in config.json auf der Konsole auf true setzen."
     },
     "fan_above_stock": {
       "message": "Die PS5 erlaubt keine Schwelle über ihrem Werkswert."

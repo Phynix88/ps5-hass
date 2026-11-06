@@ -31,9 +31,14 @@ def test_used_keys_exist() -> None:
         assert key in strings["exceptions"] or key in strings["selector"] or any(
             key in platform for platform in strings["entity"].values()
         ), key
-    for key in set(re.findall(r'errors?\[?"base"\]? ?[:=] ?"([a-z_]+)"', code)) | set(
-        re.findall(r'\{"base": "([a-z_]+)"\}', code)
-    ):
-        assert key in strings["config"]["error"] or key in strings["options"]["error"], key
-    for key in set(re.findall(r'reason="([a-z_]+)"', code)) | {"already_configured", "reauth_successful"}:
-        assert key in strings["config"]["abort"] or key in strings["options"]["abort"], key
+    flow = (COMP / "config_flow.py").read_text()
+    config_part, options_part = flow.split("class Ps5HassOptionsFlow", 1)
+    for part, section in ((config_part, "config"), (options_part, "options")):
+        for key in set(re.findall(r'errors?\[?"base"\]? ?[:=] ?"([a-z_]+)"', part)) | set(
+            re.findall(r'\{"base": "([a-z_]+)"\}', part)
+        ):
+            assert key in strings[section]["error"], (section, key)
+        for key in set(re.findall(r'reason="([a-z_]+)"', part)):
+            assert key in strings[section]["abort"], (section, key)
+    for key in ("already_configured", "reauth_successful"):
+        assert key in strings["config"]["abort"], key

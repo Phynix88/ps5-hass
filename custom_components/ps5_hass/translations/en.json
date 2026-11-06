@@ -103,6 +103,18 @@
     },
     "request_failed": {
       "message": "The PS5 refused the request ({code})."
+    },
+    "rate_limited": {
+      "message": "Too many requests to the PS5. Try again in {retry_after} s."
+    },
+    "power_off_disabled": {
+      "message": "Powering off is not allowed: set power_off to true in config.json on the console."
+    },
+    "fan_control_disabled": {
+      "message": "Fan control is not allowed: set fan_control to true in config.json on the console."
+    },
+    "fan_above_stock": {
+      "message": "The PS5 does not allow a threshold above its own factory value."
     }
   },
   "entity": {

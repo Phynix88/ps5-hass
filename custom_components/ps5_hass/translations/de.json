@@ -103,6 +103,18 @@
     },
     "request_failed": {
       "message": "Die PS5 hat die Anfrage abgelehnt ({code})."
+    },
+    "rate_limited": {
+      "message": "Zu viele Anfragen an die PS5. In {retry_after} s erneut versuchen."
+    },
+    "power_off_disabled": {
+      "message": "Ausschalten nicht erlaubt: power_off in config.json auf der Konsole auf true setzen."
+    },
+    "fan_control_disabled": {
+      "message": "Lüftersteuerung nicht erlaubt: fan_control in config.json auf der Konsole auf true setzen."
+    },
+    "fan_above_stock": {
+      "message": "Die PS5 erlaubt keine Schwelle über ihrem Werkswert."
     }
   },
   "entity": {

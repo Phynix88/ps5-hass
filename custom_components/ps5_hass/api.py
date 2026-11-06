@@ -182,3 +182,15 @@ class Ps5HassClient:
 
     async def standby(self) -> None:
         await self._json("POST", "/power/standby")
+
+    # --- v0.2 -------------------------------------------------------------
+
+    async def notify(self, message: str) -> None:
+        await self._json("POST", "/notify", {"message": message})
+
+    async def power_off(self) -> None:
+        await self._json("POST", "/power/off")
+
+    async def set_fan(self, threshold_c: int) -> dict[str, Any]:
+        """45..85, or 0 = back to the console's own value. Returns the fan state."""
+        return (await self._json("POST", "/fan", {"threshold_c": threshold_c}))["fan"]

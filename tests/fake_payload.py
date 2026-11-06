@@ -1,7 +1,7 @@
 """A stateful fake of the ps5-hass payload API (/api/v1).
 
 Every JSON answer is validated against tests/fixtures/schema.json, a copy of
-api/schema.json from Phynix88/ps5-hass-payload (copied at commit bcb2d2b).
+api/schema.json from Phynix88/ps5-hass-payload (v0.2, copied at commit cb97de0).
 A violation is answered with 500 and recorded in `schema_errors`; the `fake`
 fixture fails the test when any are left.
 """
@@ -69,6 +69,13 @@ class FakePayload:
         self.schema_errors: list[str] = []
         self.expect_schema_errors = False
         self.down = False  # abort every connection, like a payload that is not loaded
+        # v0.2
+        self.power_off = False      # permission in config.json
+        self.fan_control = False    # permission in config.json
+        self.power_off_calls = 0
+        self.payloads = ["ftpsrv.elf", "kstuff.elf", "shadowmountplus.elf", "websrv.elf"]
+        self.fan = {"target_c": None, "current_c": 91, "stock_c": 91}
+        self.notifications: list[str] = []
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -106,7 +113,9 @@ class FakePayload:
             "commit": "abc1234", "api": 1, "device_id": self.device_id,
             "model": "CFI-TEST", "firmware": "13.60",
             "paired": bool(self.tokens), "power_actions": self.power_actions,
-            "config": "ok", "capabilities": dict(self.capabilities),
+            "config": "ok",
+            "capabilities": {**self.capabilities, "power_off": self.power_off,
+                             "fan_control": self.fan_control},
             "last_error": None,
         }
 
@@ -191,6 +200,15 @@ class FakePayload:
             return self._apps(request)
         if (request.method, path) == ("POST", "/apps/running/close"):
             return self._close(body)
+        if (request.method, path) == ("POST", "/notify"):
+            return self._notify(body)
+        if (request.method, path) == ("POST", "/power/off"):
+            if not self.power_off:
+                return self._error(403, "power_off_disabled")
+            self.power_off_calls += 1
+            return self._json("ok", {"result": "ok"})
+        if (request.method, path) == ("POST", "/fan"):
+            return self._fan(body)
         if (request.method, path) == ("POST", "/power/standby"):
             if not self.power_actions:
                 return self._error(403, "power_actions_disabled")
@@ -241,6 +259,7 @@ class FakePayload:
             "storage": {"data_free_mb": 76731, "data_total_mb": 838000,
                         "user_free_mb": 76731, "user_total_mb": 838000},
             "uptime_s": 284, "payload_uptime_s": 120, "apps_etag": self.etag,
+            "payloads": list(self.payloads), "fan": dict(self.fan),
         }
         body.update(self.state_override)
         return self._json("state", body)
@@ -278,6 +297,27 @@ class FakePayload:
         self.next_app_id += 1
         return self._json("launch", {"result": "ok", "already_running": False,
                                      "app_id": self.running[1]})
+
+    def _notify(self, body: dict[str, Any]) -> web.Response:
+        msg = body.get("message")
+        if not isinstance(msg, str) or not msg.strip():
+            return self._error(400, "bad_request")
+        if len(self.notifications) >= 5:
+            return self._error(429, "rate_limited", retry_after=12)
+        self.notifications.append(msg)
+        return self._json("ok", {"result": "ok"})
+
+    def _fan(self, body: dict[str, Any]) -> web.Response:
+        if not self.fan_control:
+            return self._error(403, "fan_control_disabled")
+        value = body.get("threshold_c")
+        if not isinstance(value, int) or (value != 0 and not 45 <= value <= 85):
+            return self._error(400, "bad_request")
+        stock = self.fan["stock_c"]
+        if value and stock and value > stock:
+            return self._error(409, "fan_above_stock")
+        self.fan = {"target_c": value or None, "current_c": value or stock, "stock_c": stock}
+        return self._json("fan", {"result": "ok", "fan": dict(self.fan)})
 
     def _close(self, body: dict[str, Any]) -> web.Response:
         if not self.running:

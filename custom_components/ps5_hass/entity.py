@@ -21,6 +21,9 @@ KNOWN_ERRORS = {
     "other_app_running",
     "title_mismatch",
     "no_app",
+    "power_off_disabled",
+    "fan_control_disabled",
+    "fan_above_stock",
 }
 
 
@@ -36,6 +39,12 @@ def raise_api_error(err: Ps5HassError) -> NoReturn:
             translation_domain=DOMAIN,
             translation_key="system_error",
             translation_placeholders={"rc_hex": err.rc_hex or "?"},
+        ) from err
+    if err.code == "rate_limited":
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="rate_limited",
+            translation_placeholders={"retry_after": str(err.retry_after or 30)},
         ) from err
     if err.code in KNOWN_ERRORS:
         raise HomeAssistantError(translation_domain=DOMAIN, translation_key=err.code) from err

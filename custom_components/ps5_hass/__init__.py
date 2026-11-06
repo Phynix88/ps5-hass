@@ -22,6 +22,7 @@ PLATFORMS: list[Platform] = [
     Platform.EVENT,
     Platform.IMAGE,
     Platform.MEDIA_PLAYER,
+    Platform.NOTIFY,
     Platform.SENSOR,
 ]
 

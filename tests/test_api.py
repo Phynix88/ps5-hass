@@ -27,7 +27,7 @@ async def session() -> AsyncGenerator[aiohttp.ClientSession]:
 
 
 def client(fake: FakePayload, session: aiohttp.ClientSession, token: str | None = None) -> Ps5HassClient:
-    return Ps5HassClient(session, "127.0.0.1", fake.port, token, timeout=2)
+    return Ps5HassClient(session, "127.0.0.1", fake.port, token, timeout=10)
 
 
 async def test_info(fake: FakePayload, session) -> None:

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.0
+
+Needs the ps5-hass payload v0.3.0 for the new options; older payloads keep working.
+
+- Options are a menu: **Sources and favourites** (as before) and **Console permissions**.
+- Console permissions: tick rest mode, power off or fan control and enter the code shown on the TV; untick to take a
+  permission away at once. No FTP and no `config.json` editing needed any more.
+- The entities follow the permissions right after the dialog closes.
+
 ## v0.2.0
 
 Needs the ps5-hass payload v0.2.0 for the new entities; with v0.1.0 they stay unknown or are not created.

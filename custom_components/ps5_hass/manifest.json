@@ -1,7 +1,9 @@
 {
   "domain": "ps5_hass",
   "name": "PS5 (ps5-hass)",
-  "codeowners": ["@Phynix88"],
+  "codeowners": [
+    "@Phynix88"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Phynix88/ps5-hass",
@@ -9,6 +11,8 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Phynix88/ps5-hass/issues",
   "requirements": [],
-  "version": "0.2.0",
-  "zeroconf": ["_ps5-hass._tcp.local."]
+  "version": "0.3.0",
+  "zeroconf": [
+    "_ps5-hass._tcp.local."
+  ]
 }

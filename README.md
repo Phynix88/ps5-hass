@@ -11,8 +11,9 @@ Sony's own status query (to tell "rest mode" from "off").
 ## Requirements
 
 - A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
-  the Payload Manager and put into the autoload). Payload **v0.2.0** for everything below; with v0.1.0 the
-  integration works, but messages, payloads, power off and the fan are missing.
+  the Payload Manager and put into the autoload). Payload **v0.3.0** for everything below; with v0.2.0
+  permissions have to be set in `config.json` over FTP, with v0.1.0 messages, payloads, power off and the fan are
+  missing as well.
 - Home Assistant 2026.10 or later, in the same local network.
 
 ## Installation
@@ -58,8 +59,11 @@ Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temp
 
 ### Options
 
-- **Source list:** all apps and games, or games only.
-- **Favourite apps:** each gets its own start button.
+Settings → Devices & services → PS5 → **Configure** opens a menu:
+
+- **Sources and favourites:** source list (all apps and games, or games only) and favourite apps (each gets its own
+  start button).
+- **Console permissions:** rest mode, power off and fan control, see below.
 
 ## Media browser
 
@@ -83,14 +87,25 @@ data:
 
 ## Rest mode, power off and the fan
 
-The payload refuses these unless you allow them on the console, in `/data/ps5-hass/config.json`, and restart the
-payload. Home Assistant adds or removes the entities by itself the next time the payload answers.
+The console refuses these until you allow them. Allowing is bound to the console: you need the code it shows on the
+TV.
 
-| Key | Allows |
+1. Options → **Console permissions**, tick what Home Assistant may do, *Submit*.
+2. The TV shows `ps5-hass: "Home Assistant" asks to allow power off. Code: 123456`. Enter the code (missed it? tick
+   **Show a new code**).
+3. The entities appear at once.
+
+Unticking takes a permission away at once, without a code; its entities become unavailable (delete them if you do
+not want to see them). Options that the console cannot do are not shown.
+
+| Permission | Allows |
 |---|---|
-| `"power_actions": true` | rest mode (`button.ps5_rest_mode`, media player turn off) |
-| `"power_off": true` | power off (`button.ps5_power_off`). Switching on again needs the power button or the controller's PS button. |
-| `"fan_control": true` | fan threshold |
+| Rest mode | `button.ps5_rest_mode`, media player turn off |
+| Power off | `button.ps5_power_off`. Switching on again needs the power button or the controller's PS button. |
+| Fan control | fan threshold (switch, slider, current value) |
+
+Without the options (or with payload v0.2.0): set `"power_actions"`, `"power_off"` or `"fan_control"` to `true` in
+`/data/ps5-hass/config.json` on the console and restart the payload.
 
 **Fan threshold:** the temperature at which the console speeds up its fan. Lower = cooler and louder.
 
@@ -165,7 +180,8 @@ To send your own text from a dashboard, create a text helper (`input_text`) and 
 
 - **Not found automatically:** add it by IP address; check that the payload runs (`http://<ps5>:8181/api/v1/info`).
 - **Pairing locked:** after 10 wrong codes in a row the console locks pairing for 15 minutes (growing).
-- **Power off / fan entities missing:** allow them in `config.json` (see above) and restart the payload.
+- **Power off / fan entities missing:** allow them in the options → Console permissions (see above).
+- **"Granting is locked":** 10 wrong codes in a row lock granting for 15 minutes; wait, or restart the payload.
 - **Report a problem:** download the diagnostics (Settings → Devices → PS5 → ⋮ → Download diagnostics; the token is
   removed) and add the payload's `/api/v1/info`.
 

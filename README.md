@@ -1,16 +1,18 @@
 # PS5 (ps5-hass) for Home Assistant
 
-Brings a jailbroken PS5 into Home Assistant: what is running (with cover), all installed games and apps as
-sources, start/switch/close apps, temperatures and free storage, app started/stopped events and, if you allow it,
-rest mode. No YAML, no MQTT broker, no PSN account, no cloud.
+Brings a jailbroken PS5 into Home Assistant: what is running (with cover), all installed games and apps in the media
+browser and as sources, start/switch/close apps, temperatures and free storage, running payloads, messages on the TV,
+app started/stopped events and, if you allow it, rest mode, power off and the fan threshold. No YAML, no MQTT broker,
+no PSN account, no cloud.
 
 It talks to the [ps5-hass payload](https://github.com/Phynix88/ps5-hass-payload) running on the console and to
 Sony's own status query (to tell "rest mode" from "off").
 
 ## Requirements
 
-- A PS5 with a jailbreak and the **ps5-hass payload v0.1.0 or later** loaded (see the payload's README; it can be
-  installed through the Payload Manager and put into the autoload).
+- A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
+  the Payload Manager and put into the autoload). Payload **v0.2.0** for everything below; with v0.1.0 the
+  integration works, but messages, payloads, power off and the fan are missing.
 - Home Assistant 2026.10 or later, in the same local network.
 
 ## Installation
@@ -34,15 +36,21 @@ pair again. Removing the integration gives the pairing slot back to the console.
 
 | Entity | Notes |
 |---|---|
-| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `standby` (rest mode), `off`. Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when allowed. Cover of the running app as picture. |
+| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `standby` (rest mode), `off`. Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when allowed. Cover of the running app as picture. Media browser, see below. |
+| `notify.ps5` | message on the TV, see below |
 | `sensor.ps5_cpu_temperature`, `sensor.ps5_soc_temperature` | °C |
 | `sensor.ps5_storage_free` | GiB free on the internal SSD |
 | `sensor.ps5_running_app` | name, attributes `title_id`, `kind` |
+| `sensor.ps5_power` | `on`, `standby`, `off` |
+| `sensor.ps5_payloads` | number of running payloads, attribute `names` |
+| `binary_sensor.ps5_jailbreak_kstuff`, `…_shadowmount`, `…_ftp_server`, `…_websrv` | whether that payload runs (diagnostic) |
 | `sensor.ps5_uptime`, `sensor.ps5_fan_raw` | diagnostic, disabled by default (the fan value is the raw console value) |
 | `image.ps5_cover` | cover of the running app |
 | `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind` |
 | `button.ps5_close_app` | closes the app that Home Assistant shows as running |
-| `button.ps5_rest_mode` | only when `power_actions` is enabled on the console |
+| `button.ps5_rest_mode` | only when rest mode is allowed on the console |
+| `button.ps5_power_off` | only when power off is allowed on the console |
+| `switch.ps5_fan_control`, `number.ps5_fan_threshold`, `sensor.ps5_fan_threshold_current` | only when fan control is allowed on the console, see below |
 | `button.ps5_start_<app>` | one per favourite (options) |
 
 Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temperatur` in German).
@@ -52,11 +60,91 @@ Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temp
 - **Source list:** all apps and games, or games only.
 - **Favourite apps:** each gets its own start button.
 
-### Rest mode from Home Assistant
+## Media browser
 
-The payload refuses rest mode unless you allow it on the console: set `"power_actions": true` in
-`/data/ps5-hass/config.json` and restart the payload. Home Assistant picks the change up the next time the
-payload answers.
+**Media → PS5** shows the folders *Games* and *Apps* with covers. Clicking a title starts it on the console (a
+running app is closed first). The same works from a media card on a dashboard. While the console is off the browser
+is empty.
+
+## Messages on the TV
+
+`notify.ps5` shows a message as a notification on the TV. A title is put in front
+of the message (`title: message`). At most 200 bytes (longer texts are cut), 5 messages per 30 seconds.
+
+```yaml
+action: notify.send_message
+target:
+  entity_id: notify.ps5
+data:
+  title: Door
+  message: Someone is at the front door
+```
+
+## Rest mode, power off and the fan
+
+The payload refuses these unless you allow them on the console, in `/data/ps5-hass/config.json`, and restart the
+payload. Home Assistant adds or removes the entities by itself the next time the payload answers.
+
+| Key | Allows |
+|---|---|
+| `"power_actions": true` | rest mode (`button.ps5_rest_mode`, media player turn off) |
+| `"power_off": true` | power off (`button.ps5_power_off`). Switching on again needs the power button or the controller's PS button. |
+| `"fan_control": true` | fan threshold |
+
+**Fan threshold:** the temperature at which the console speeds up its fan. Lower = cooler and louder.
+
+- `switch.ps5_fan_control` on: the console uses `number.ps5_fan_threshold` (45–85 °C, never above the console's
+  factory value, 91 °C on FW 13.60). Switching on again uses the last threshold (80 °C the first time).
+- Off: the console's factory value again.
+- `sensor.ps5_fan_threshold_current` is what the console uses right now.
+- The payload sets the value again if the console resets it. If another tool changes the fan, the payload leaves
+  it alone and reports it (`/api/v1/info`, `last_error`).
+
+Example: cooler while a game runs.
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: media_player.ps5
+    to: playing
+actions:
+  - action: number.set_value
+    target:
+      entity_id: number.ps5_fan_threshold
+    data:
+      value: 75
+```
+
+## Dashboard example
+
+```yaml
+type: vertical-stack
+cards:
+  - type: media-control
+    entity: media_player.ps5
+  - type: tile
+    entity: sensor.ps5_cpu_temperature
+  - type: tile
+    entity: switch.ps5_fan_control
+  - type: tile
+    entity: number.ps5_fan_threshold
+    features:
+      - type: numeric-input
+        style: slider
+  - type: tile
+    entity: button.ps5_rest_mode
+    hide_state: true
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.ps5_rest_mode
+      confirmation:
+        text: Put the PS5 into rest mode?
+```
+
+To send your own text from a dashboard, create a text helper (`input_text`) and a script that calls
+`notify.send_message` with its value.
 
 ## How it works
 
@@ -67,14 +155,16 @@ payload answers.
 
 ## Limits
 
-- Waking the console from rest mode is not possible (it needs Remote Play pairing with a PSN login).
-- No controller input, no screenshots, no power off (rest mode only).
+- Waking the console from rest mode or power off is not possible (it needs Remote Play pairing with a PSN login).
+- No controller input, no screenshots, no controller battery (the console refuses pad access from a payload).
 - PS4 titles are listed with their title id as name.
+- The fan threshold is tested on FW 13.60 (CFI-2116) only.
 
 ## Troubleshooting
 
 - **Not found automatically:** add it by IP address; check that the payload runs (`http://<ps5>:8181/api/v1/info`).
 - **Pairing locked:** after 10 wrong codes in a row the console locks pairing for 15 minutes (growing).
+- **Power off / fan entities missing:** allow them in `config.json` (see above) and restart the payload.
 - **Report a problem:** download the diagnostics (Settings → Devices → PS5 → ⋮ → Download diagnostics; the token is
   removed) and add the payload's `/api/v1/info`.
 

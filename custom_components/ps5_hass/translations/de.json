@@ -1,0 +1,61 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Mit der PS5 verbinden",
+        "description": "Auf der Konsole muss der Payload ps5-hass laufen.",
+        "data": { "host": "Host", "port": "Port" },
+        "data_description": {
+          "host": "IP-Adresse oder Name der PS5.",
+          "port": "Port des Payloads (8181, sofern in config.json nicht geändert)."
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "PS5 gefunden",
+        "description": "{name} einrichten? Die Konsole zeigt dann einen Kopplungscode am Fernseher."
+      },
+      "reauth_confirm": {
+        "title": "Erneut koppeln",
+        "description": "Die PS5 akzeptiert das gespeicherte Token nicht mehr. Mit einem neuen Code vom Fernseher erneut koppeln."
+      },
+      "pair": {
+        "title": "Code vom Fernseher eingeben",
+        "description": "Die PS5 zeigt am Fernseher „ps5-hass pairing code: …“. Die 6 Ziffern innerhalb von zwei Minuten eingeben.",
+        "data": { "code": "Code", "new_code": "Neuen Code anzeigen" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Der Payload ist nicht erreichbar. Ist die Konsole an und der Payload geladen?",
+      "wrong_code": "Falscher Code. Noch {attempts_left} Versuche.",
+      "code_expired": "Der Code ist abgelaufen oder verbraucht. „Neuen Code anzeigen“ ankreuzen.",
+      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor ein neuer Code angefordert wird."
+    },
+    "abort": {
+      "already_configured": "Diese PS5 ist bereits eingerichtet.",
+      "unsupported_api": "Diese Payload-Version wird nicht unterstützt. Bitte die Integration aktualisieren.",
+      "locked": "Die Kopplung ist nach zu vielen falschen Codes für {minutes} Minuten gesperrt.",
+      "cannot_show_code": "Die Konsole kann keinen Kopplungscode anzeigen (Benachrichtigung oder Zufallsquelle fehlt).",
+      "token_limit": "Alle 8 Kopplungsplätze der Konsole sind belegt. config.json auf der Konsole löschen, um sie zurückzusetzen.",
+      "cannot_connect": "Der Payload ist nicht erreichbar.",
+      "reauth_successful": "Erneut gekoppelt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PS5-Optionen",
+        "data": { "sources": "Quellenliste", "favorites": "Lieblings-Apps" },
+        "data_description": {
+          "sources": "Welche Titel der Mediaplayer als Quelle anbietet.",
+          "favorites": "Jeder Favorit bekommt einen eigenen Start-Knopf."
+        }
+      }
+    }
+  },
+  "selector": {
+    "sources": {
+      "options": { "all": "Alle Apps und Spiele", "games": "Nur Spiele" }
+    }
+  }
+}

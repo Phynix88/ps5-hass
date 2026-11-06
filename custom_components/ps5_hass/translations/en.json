@@ -1,0 +1,61 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Connect to the PS5",
+        "description": "The ps5-hass payload must be running on the console.",
+        "data": { "host": "Host", "port": "Port" },
+        "data_description": {
+          "host": "IP address or name of the PS5.",
+          "port": "Port of the payload (8181 unless changed in config.json)."
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "PS5 found",
+        "description": "Set up {name}? The console will show a pairing code on the TV."
+      },
+      "reauth_confirm": {
+        "title": "Pair again",
+        "description": "The PS5 no longer accepts the stored token. Pair again with a new code from the TV."
+      },
+      "pair": {
+        "title": "Enter the code from the TV",
+        "description": "The PS5 shows \"ps5-hass pairing code: …\" on the TV. Enter the 6 digits within two minutes.",
+        "data": { "code": "Code", "new_code": "Show a new code" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the payload. Is the console on and the payload loaded?",
+      "wrong_code": "Wrong code. {attempts_left} attempts left.",
+      "code_expired": "The code has expired or is used up. Tick \"Show a new code\".",
+      "rate_limited": "Please wait {retry_after} seconds before asking for a new code."
+    },
+    "abort": {
+      "already_configured": "This PS5 is already set up.",
+      "unsupported_api": "This payload version is not supported. Update the integration.",
+      "locked": "Pairing is locked for {minutes} minutes after too many wrong codes.",
+      "cannot_show_code": "The console cannot show a pairing code (notification or randomness unavailable).",
+      "token_limit": "All 8 pairing slots of the console are used. Delete config.json on the console to reset them.",
+      "cannot_connect": "Cannot reach the payload.",
+      "reauth_successful": "Paired again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PS5 options",
+        "data": { "sources": "Source list", "favorites": "Favourite apps" },
+        "data_description": {
+          "sources": "Which titles the media player offers as sources.",
+          "favorites": "Each favourite gets its own start button."
+        }
+      }
+    }
+  },
+  "selector": {
+    "sources": {
+      "options": { "all": "All apps and games", "games": "Games only" }
+    }
+  }
+}

@@ -5,7 +5,10 @@
       "user": {
         "title": "Connect to the PS5",
         "description": "The ps5-hass payload must be running on the console.",
-        "data": { "host": "Host", "port": "Port" },
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
         "data_description": {
           "host": "IP address or name of the PS5.",
           "port": "Port of the payload (8181 unless changed in config.json)."
@@ -22,7 +25,10 @@
       "pair": {
         "title": "Enter the code from the TV",
         "description": "The PS5 shows \"ps5-hass pairing code: …\" on the TV. Enter the 6 digits within two minutes.",
-        "data": { "code": "Code", "new_code": "Show a new code" }
+        "data": {
+          "code": "Code",
+          "new_code": "Show a new code"
+        }
       }
     },
     "error": {
@@ -45,7 +51,10 @@
     "step": {
       "init": {
         "title": "PS5 options",
-        "data": { "sources": "Source list", "favorites": "Favourite apps" },
+        "data": {
+          "sources": "Source list",
+          "favorites": "Favourite apps"
+        },
         "data_description": {
           "sources": "Which titles the media player offers as sources.",
           "favorites": "Each favourite gets its own start button."
@@ -55,7 +64,45 @@
   },
   "selector": {
     "sources": {
-      "options": { "all": "All apps and games", "games": "Games only" }
+      "options": {
+        "all": "All apps and games",
+        "games": "Games only"
+      }
+    }
+  },
+  "exceptions": {
+    "console_off": {
+      "message": "The PS5 payload is not reachable (console off, in rest mode or payload not loaded)."
+    },
+    "auth_failed": {
+      "message": "The PS5 no longer accepts the token. Pair again."
+    },
+    "unknown_source": {
+      "message": "There is no app called \"{source}\" on the PS5."
+    },
+    "not_installed": {
+      "message": "This app is not installed on the PS5."
+    },
+    "no_user": {
+      "message": "No user is logged in on the PS5."
+    },
+    "power_actions_disabled": {
+      "message": "Rest mode is not allowed: set power_actions to true in config.json on the console."
+    },
+    "other_app_running": {
+      "message": "Another app is running on the PS5."
+    },
+    "title_mismatch": {
+      "message": "A different app is running on the PS5 by now."
+    },
+    "no_app": {
+      "message": "No app is running on the PS5."
+    },
+    "system_error": {
+      "message": "The PS5 reported an error ({rc_hex})."
+    },
+    "request_failed": {
+      "message": "The PS5 refused the request ({code})."
     }
   }
 }

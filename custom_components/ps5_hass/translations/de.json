@@ -5,7 +5,10 @@
       "user": {
         "title": "Mit der PS5 verbinden",
         "description": "Auf der Konsole muss der Payload ps5-hass laufen.",
-        "data": { "host": "Host", "port": "Port" },
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
         "data_description": {
           "host": "IP-Adresse oder Name der PS5.",
           "port": "Port des Payloads (8181, sofern in config.json nicht geändert)."
@@ -22,7 +25,10 @@
       "pair": {
         "title": "Code vom Fernseher eingeben",
         "description": "Die PS5 zeigt am Fernseher „ps5-hass pairing code: …“. Die 6 Ziffern innerhalb von zwei Minuten eingeben.",
-        "data": { "code": "Code", "new_code": "Neuen Code anzeigen" }
+        "data": {
+          "code": "Code",
+          "new_code": "Neuen Code anzeigen"
+        }
       }
     },
     "error": {
@@ -45,7 +51,10 @@
     "step": {
       "init": {
         "title": "PS5-Optionen",
-        "data": { "sources": "Quellenliste", "favorites": "Lieblings-Apps" },
+        "data": {
+          "sources": "Quellenliste",
+          "favorites": "Lieblings-Apps"
+        },
         "data_description": {
           "sources": "Welche Titel der Mediaplayer als Quelle anbietet.",
           "favorites": "Jeder Favorit bekommt einen eigenen Start-Knopf."
@@ -55,7 +64,45 @@
   },
   "selector": {
     "sources": {
-      "options": { "all": "Alle Apps und Spiele", "games": "Nur Spiele" }
+      "options": {
+        "all": "Alle Apps und Spiele",
+        "games": "Nur Spiele"
+      }
+    }
+  },
+  "exceptions": {
+    "console_off": {
+      "message": "Der PS5-Payload ist nicht erreichbar (Konsole aus, im Ruhemodus oder Payload nicht geladen)."
+    },
+    "auth_failed": {
+      "message": "Die PS5 akzeptiert das Token nicht mehr. Bitte erneut koppeln."
+    },
+    "unknown_source": {
+      "message": "Auf der PS5 gibt es keine App „{source}“."
+    },
+    "not_installed": {
+      "message": "Diese App ist auf der PS5 nicht installiert."
+    },
+    "no_user": {
+      "message": "Auf der PS5 ist kein Benutzer angemeldet."
+    },
+    "power_actions_disabled": {
+      "message": "Ruhemodus nicht erlaubt: power_actions in config.json auf der Konsole auf true setzen."
+    },
+    "other_app_running": {
+      "message": "Auf der PS5 läuft eine andere App."
+    },
+    "title_mismatch": {
+      "message": "Auf der PS5 läuft inzwischen eine andere App."
+    },
+    "no_app": {
+      "message": "Auf der PS5 läuft keine App."
+    },
+    "system_error": {
+      "message": "Die PS5 hat einen Fehler gemeldet ({rc_hex})."
+    },
+    "request_failed": {
+      "message": "Die PS5 hat die Anfrage abgelehnt ({code})."
     }
   }
 }

@@ -17,7 +17,7 @@ from .coordinator import (
     clean_info,
 )
 
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> bool:

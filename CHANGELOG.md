@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.1
+
+- Console permissions: clearer answers on errors (console cannot show a code, not available, wrong number of digits,
+  could not save), an invalid pairing starts re-pairing, "already allowed" after a new code closes the dialog.
+- Nothing changed in the permissions dialog: it closes without a call and without reloading.
+- Messages for refused rest mode, power off and fan control name the options (Console permissions).
+- Manifest category `media_entertainment.gaming`.
+
 ## v0.3.0
 
 Needs the ps5-hass payload v0.3.0 for the new options; older payloads keep working.

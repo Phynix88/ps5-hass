@@ -42,3 +42,8 @@ def test_used_keys_exist() -> None:
             assert key in strings[section]["abort"], (section, key)
     for key in ("already_configured", "reauth_successful"):
         assert key in strings["config"]["abort"], key
+
+
+def test_manifest_has_category() -> None:
+    manifest = json.loads((COMP / "manifest.json").read_text())
+    assert manifest.get("categories") == ["media_entertainment.gaming"]

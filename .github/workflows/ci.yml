@@ -1,5 +1,4 @@
-# Tests and hassfest on every push. HACS validation needs a public repository;
-# it is prepared below and switched on when the repo goes public.
+# Tests, hassfest and the HACS validation on every push.
 # Actions are pinned to commit SHAs.
 name: ci
 on:
@@ -34,7 +33,6 @@ jobs:
       - uses: home-assistant/actions/hassfest@86d4564712fa02543c808e3a693dd04f9d3f8361 # master 2026-11
 
   hacs:
-    if: false # enable when the repository is public
     runs-on: ubuntu-latest
     steps:
       - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0

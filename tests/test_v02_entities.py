@@ -83,3 +83,19 @@ async def test_fan_error_translated(hass, fake) -> None:
         await hass.services.async_call(
             "number", "set_value", {"entity_id": "number.ps5_fan_threshold", "value": 80}, blocking=True)
     assert err.value.translation_key == "fan_above_stock"
+
+
+async def test_v01_payload_shows_unknown_not_off(hass, fake) -> None:
+    fake.legacy_v01 = True
+    await _setup(hass, fake)
+    assert hass.states.get("binary_sensor.ps5_jailbreak_kstuff").state == "unknown"
+    assert hass.states.get("sensor.ps5_payloads").state == "unknown"
+
+
+async def test_fan_switch_on_capped_by_stock(hass, fake) -> None:
+    fake.fan_control = True
+    fake.fan = {"target_c": None, "current_c": 70, "stock_c": 70}
+    await _setup(hass, fake)
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": "switch.ps5_fan_control"}, blocking=True)
+    assert fake.fan["target_c"] == 70  # default 80 would be above this board's 70

@@ -11,7 +11,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .coordinator import Ps5HassConfigEntry
 from .entity import Ps5HassEntity
-from .fan import DEFAULT_TARGET, fan_state, set_fan
+from .fan import DEFAULT_TARGET, FAN_MAX, fan_state, set_fan
 
 
 async def async_setup_entry(
@@ -50,7 +50,9 @@ class Ps5FanControl(Ps5HassEntity, SwitchEntity, RestoreEntity):
         return {"last_target_c": self._last_target}
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await set_fan(self, self._last_target)
+        stock = fan_state(self).get("stock_c")
+        limit = min(FAN_MAX, stock) if stock else FAN_MAX
+        await set_fan(self, min(self._last_target, limit))  # never above the factory value
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await set_fan(self, 0)

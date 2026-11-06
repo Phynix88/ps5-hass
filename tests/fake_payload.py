@@ -76,6 +76,7 @@ class FakePayload:
         self.payloads = ["ftpsrv.elf", "kstuff.elf", "shadowmountplus.elf", "websrv.elf"]
         self.fan = {"target_c": None, "current_c": 91, "stock_c": 91}
         self.notifications: list[str] = []
+        self.legacy_v01 = False  # answer /state like a v0.1 payload (no payloads/fan)
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -262,6 +263,10 @@ class FakePayload:
             "payloads": list(self.payloads), "fan": dict(self.fan),
         }
         body.update(self.state_override)
+        if self.legacy_v01:
+            body.pop("payloads")
+            body.pop("fan")
+            return web.json_response(body)  # v0.1 schema; not checked here
         return self._json("state", body)
 
     def _apps(self, request: web.Request) -> web.Response:

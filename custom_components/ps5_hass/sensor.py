@@ -160,15 +160,17 @@ class Ps5PayloadsSensor(Ps5HassEntity, SensorEntity):
     def __init__(self, entry: Ps5HassConfigEntry) -> None:
         super().__init__(entry, "payloads")
 
-    def _names(self) -> list[str]:
+    def _names(self) -> list[str] | None:
         if not self.payload_up:
-            return []
-        return list(self.coordinator.data.state.get("payloads") or [])
+            return None
+        names = self.coordinator.data.state.get("payloads")
+        return None if names is None else list(names)  # None: payload older than v0.2
 
     @property
     def native_value(self) -> int | None:
-        return len(self._names()) if self.payload_up else None
+        names = self._names()
+        return None if names is None else len(names)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"names": self._names()}
+        return {"names": self._names() or []}

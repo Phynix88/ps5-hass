@@ -39,4 +39,7 @@ class Ps5PayloadRunning(Ps5HassEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         if not self.payload_up:
             return None
-        return self._process in (self.coordinator.data.state.get("payloads") or [])
+        names = self.coordinator.data.state.get("payloads")
+        if names is None:  # payload older than v0.2: unknown, not "not running"
+            return None
+        return self._process in names

@@ -3,22 +3,63 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import Ps5HassClient, Ps5HassError
-from .const import CONF_TOKEN
+from .api import ApiError, CannotConnect, Ps5HassClient, Ps5HassError
+from .const import CONF_INFO, CONF_TOKEN
+from .coordinator import (
+    AppsCoordinator,
+    Ps5HassConfigEntry,
+    Ps5HassData,
+    StateCoordinator,
+    clean_info,
+)
+
+PLATFORMS: list[Platform] = []
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up a console."""
+async def async_setup_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> bool:
+    """Set up a console; works with the console off (cached /info)."""
+    client = Ps5HassClient(
+        async_get_clientsession(hass),
+        entry.data[CONF_HOST],
+        entry.data[CONF_PORT],
+        entry.data[CONF_TOKEN],
+    )
+    info = dict(entry.data.get(CONF_INFO, {}))
+    try:
+        fresh = clean_info(await client.info())
+    except (CannotConnect, ApiError):
+        pass  # console off or in rest mode: the normal case
+    else:
+        if fresh != info:
+            info = fresh
+            hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_INFO: info})
+
+    apps = AppsCoordinator(hass, entry, client)
+    state = StateCoordinator(hass, entry, client, apps)
+    entry.runtime_data = Ps5HassData(client, state, apps, info)
+    await apps.async_refresh()
+    await state.async_refresh()
+    # Coordinators only poll while someone listens; keep both polling even if
+    # every entity is disabled (state changes drive the app events).
+    entry.async_on_unload(apps.async_add_listener(lambda: None))
+    entry.async_on_unload(state.async_add_listener(lambda: None))
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_options_updated))
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def _options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> bool:
     """Unload a console."""
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:

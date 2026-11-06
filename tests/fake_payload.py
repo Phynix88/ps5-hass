@@ -68,6 +68,7 @@ class FakePayload:
         self.state_override: dict[str, Any] = {}
         self.schema_errors: list[str] = []
         self.expect_schema_errors = False
+        self.down = False  # abort every connection, like a payload that is not loaded
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -82,7 +83,7 @@ class FakePayload:
     async def start(self, port: int = 0) -> int:
         app = web.Application(middlewares=[self._guard])
         app.router.add_route("*", "/api/v1/{tail:.*}", self._dispatch)
-        self._runner = web.AppRunner(app)
+        self._runner = web.AppRunner(app, access_log=None)
         await self._runner.setup()
         site = web.TCPSite(self._runner, "127.0.0.1", port or self.port)
         await site.start()
@@ -131,6 +132,10 @@ class FakePayload:
 
     @web.middleware
     async def _guard(self, request: web.Request, handler: Any) -> web.StreamResponse:
+        if self.down:
+            if request.transport is not None:
+                request.transport.abort()
+            raise ConnectionResetError("fake payload is down")
         if "Origin" in request.headers:
             return self._error(403, "origin_forbidden")
         if request.method == "POST":

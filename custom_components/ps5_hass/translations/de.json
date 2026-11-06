@@ -51,6 +51,13 @@
     "step": {
       "init": {
         "title": "PS5-Optionen",
+        "menu_options": {
+          "sources": "Quellen und Favoriten",
+          "permissions": "Freigaben der Konsole"
+        }
+      },
+      "sources": {
+        "title": "PS5-Optionen",
         "data": {
           "sources": "Quellenliste",
           "favorites": "Lieblings-Apps"
@@ -59,7 +66,39 @@
           "sources": "Welche Titel der Mediaplayer als Quelle anbietet.",
           "favorites": "Jeder Favorit bekommt einen eigenen Start-Knopf."
         }
+      },
+      "permissions": {
+        "title": "Freigaben der Konsole",
+        "description": "Was Home Assistant an der Konsole darf. Ein gesetztes Häkchen zeigt einen Code am Fernseher, den du im nächsten Schritt eingibst. Ein entferntes Häkchen entzieht die Freigabe sofort.",
+        "data": {
+          "power_actions": "Ruhemodus",
+          "power_off": "Ausschalten",
+          "fan_control": "Lüftersteuerung"
+        },
+        "data_description": {
+          "power_actions": "Knopf Ruhemodus und Mediaplayer aus.",
+          "power_off": "Knopf Ausschalten. Einschalten geht danach nur mit der Einschalttaste oder der PS-Taste am Controller.",
+          "fan_control": "Schalter und Regler für die Lüfter-Schwelle."
+        }
+      },
+      "grant_code": {
+        "title": "Code vom Fernseher eingeben",
+        "description": "Die PS5 zeigt am Fernseher \"ps5-hass: … asks to allow …. Code: …\". Gib die 6 Ziffern innerhalb von zwei Minuten ein.",
+        "data": {
+          "code": "Code",
+          "new_code": "Neuen Code anzeigen"
+        }
       }
+    },
+    "error": {
+      "cannot_connect": "Payload nicht erreichbar. Ist die Konsole an und der Payload geladen?",
+      "wrong_code": "Falscher Code. Noch {attempts_left} Versuche.",
+      "code_expired": "Der Code ist abgelaufen oder aufgebraucht. Setze das Häkchen „Neuen Code anzeigen“.",
+      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor du einen neuen Code anforderst."
+    },
+    "abort": {
+      "payload_too_old": "Der Payload auf der Konsole ist zu alt. Aktualisiere ihn auf v0.3.0 oder neuer, oder setze die Freigaben in config.json auf der Konsole.",
+      "locked": "Freigeben ist nach zu vielen falschen Codes für {minutes} Minuten gesperrt."
     }
   },
   "selector": {

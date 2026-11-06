@@ -194,7 +194,12 @@ async def test_options_sources_and_favorites(hass: HomeAssistant, fake: FakePayl
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "sources"}
+    )
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "sources"
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {OPT_SOURCES: "games", OPT_FAVORITES: ["PPSA96708", "PPSA99169"]}
     )

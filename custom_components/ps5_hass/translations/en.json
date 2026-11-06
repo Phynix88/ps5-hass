@@ -51,6 +51,13 @@
     "step": {
       "init": {
         "title": "PS5 options",
+        "menu_options": {
+          "sources": "Sources and favourites",
+          "permissions": "Console permissions"
+        }
+      },
+      "sources": {
+        "title": "PS5 options",
         "data": {
           "sources": "Source list",
           "favorites": "Favourite apps"
@@ -59,7 +66,39 @@
           "sources": "Which titles the media player offers as sources.",
           "favorites": "Each favourite gets its own start button."
         }
+      },
+      "permissions": {
+        "title": "Console permissions",
+        "description": "What Home Assistant may do on the console. Ticking a box shows a code on the TV that you enter in the next step. Unticking takes the permission away at once.",
+        "data": {
+          "power_actions": "Rest mode",
+          "power_off": "Power off",
+          "fan_control": "Fan control"
+        },
+        "data_description": {
+          "power_actions": "Rest mode button and media player off.",
+          "power_off": "Power off button. Switching on again needs the power button or the controller's PS button.",
+          "fan_control": "Fan threshold switch and slider."
+        }
+      },
+      "grant_code": {
+        "title": "Enter the code from the TV",
+        "description": "The PS5 shows \"ps5-hass: … asks to allow …. Code: …\" on the TV. Enter the 6 digits within two minutes.",
+        "data": {
+          "code": "Code",
+          "new_code": "Show a new code"
+        }
       }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the payload. Is the console on and the payload loaded?",
+      "wrong_code": "Wrong code. {attempts_left} attempts left.",
+      "code_expired": "The code has expired or is used up. Tick \"Show a new code\".",
+      "rate_limited": "Please wait {retry_after} seconds before asking for a new code."
+    },
+    "abort": {
+      "payload_too_old": "The payload on the console is too old. Update it to v0.3.0 or later, or set the permissions in config.json on the console.",
+      "locked": "Granting is locked for {minutes} minutes after too many wrong codes."
     }
   },
   "selector": {

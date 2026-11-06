@@ -243,13 +243,24 @@ class Ps5HassConfigFlow(ConfigFlow, domain=DOMAIN):
         return Ps5HassOptionsFlow()
 
 
+PERMISSIONS = ("power_actions", "power_off", "fan_control")
+
+
 class Ps5HassOptionsFlow(OptionsFlowWithReload):
-    """Source list filter and favourite apps; saving reloads the entry."""
+    """Menu: source list and favourites (saving reloads the entry), or the
+    console permissions (granted with a code on the TV, design v0.3 §6)."""
 
     def __init__(self) -> None:
         self._names: dict[str, str] = {}
+        self._pending: list[str] = []  # permissions waiting for the TV code
+        self._placeholders: dict[str, str] = {}
 
     async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["sources", "permissions"])
+
+    async def async_step_sources(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         entry = self.config_entry
@@ -292,7 +303,143 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
                 ),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="sources", data_schema=schema)
+
+    # --- permissions (v0.3) -------------------------------------------------
+
+    def _client(self) -> Ps5HassClient:
+        entry = self.config_entry
+        return Ps5HassClient(
+            async_get_clientsession(self.hass),
+            entry.data[CONF_HOST],
+            entry.data[CONF_PORT],
+            entry.data[CONF_TOKEN],
+        )
+
+    def _permissions_form(
+        self, perms: dict[str, dict[str, bool]], errors: dict[str, str]
+    ) -> ConfigFlowResult:
+        schema = vol.Schema(
+            {
+                vol.Optional(name, default=perms[name]["allowed"]): bool
+                for name in PERMISSIONS
+                if perms.get(name, {}).get("available")
+            }
+        )
+        return self.async_show_form(
+            step_id="permissions", data_schema=schema, errors=errors
+        )
+
+    async def async_step_permissions(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        stored = self.config_entry.data.get(CONF_INFO, {}).get("permissions")
+        try:
+            info = await self._client().info()
+        except (CannotConnect, ApiError, AuthError):
+            if stored is None:
+                return self.async_abort(reason="payload_too_old")
+            return self._permissions_form(stored, {"base": "cannot_connect"})
+        perms = info.get("permissions")
+        if perms is None:
+            return self.async_abort(reason="payload_too_old")
+        if user_input is None:
+            return self._permissions_form(perms, {})
+        allowed = {n for n in PERMISSIONS if perms[n]["allowed"]}
+        shown = [n for n in PERMISSIONS if perms[n]["available"]]
+        wanted = {n for n in shown if user_input.get(n)}
+        revoke = [n for n in shown if n in allowed and n not in wanted]
+        grant = [n for n in shown if n in wanted and n not in allowed]
+        try:
+            if revoke:
+                await self._client().grant_revoke(revoke)
+            if not grant:
+                return await self._permissions_done()
+            self._pending = grant
+            await self._client().grant_start(grant)
+        except CannotConnect:
+            return self._permissions_form(perms, {"base": "cannot_connect"})
+        except (ApiError, AuthError) as err:
+            if isinstance(err, ApiError) and err.code == "already_allowed":
+                return await self._permissions_done()
+            abort = self._grant_abort(err)
+            if abort:
+                return abort
+            return self._permissions_form(perms, self._grant_error(err))
+        return self._grant_form({})
+
+    def _grant_abort(self, err: Exception) -> ConfigFlowResult | None:
+        if isinstance(err, ApiError) and err.code == "locked":
+            minutes = max(1, round((err.retry_after or 0) / 60))
+            return self.async_abort(
+                reason="locked", description_placeholders={"minutes": str(minutes)}
+            )
+        return None
+
+    def _grant_error(self, err: Exception) -> dict[str, str]:
+        if not isinstance(err, ApiError):
+            return {"base": "cannot_connect"}
+        if err.code == "wrong_code":
+            self._placeholders["attempts_left"] = str(err.attempts_left or 0)
+            return {"base": "wrong_code"}
+        if err.code in ("no_code", "code_exhausted"):
+            return {"base": "code_expired"}
+        if err.code == "rate_limited":
+            self._placeholders["retry_after"] = str(err.retry_after or 30)
+            return {"base": "rate_limited"}
+        return {"base": "cannot_connect"}
+
+    def _grant_form(self, errors: dict[str, str]) -> ConfigFlowResult:
+        self._placeholders.setdefault("attempts_left", "5")
+        self._placeholders.setdefault("retry_after", "30")
+        schema = vol.Schema(
+            {
+                vol.Optional("code", default=""): str,
+                vol.Optional("new_code", default=False): bool,
+            }
+        )
+        return self.async_show_form(
+            step_id="grant_code",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders=dict(self._placeholders),
+        )
+
+    async def async_step_grant_code(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is None:
+            return self._grant_form({})
+        try:
+            if user_input.get("new_code"):
+                await self._client().grant_start(self._pending)
+                return self._grant_form({})
+            await self._client().grant_finish(user_input.get("code", "").strip())
+        except CannotConnect:
+            return self._grant_form({"base": "cannot_connect"})
+        except (ApiError, AuthError) as err:
+            abort = self._grant_abort(err)
+            if abort:
+                return abort
+            return self._grant_form(self._grant_error(err))
+        return await self._permissions_done()
+
+    async def _permissions_done(self) -> ConfigFlowResult:
+        """Store the new /info, reload the entry (entities depend on it) and keep
+        the options as they are; OptionsFlowWithReload would not reload here."""
+        entry = self.config_entry
+        try:
+            info = _clean_info(await self._client().info())
+        except (CannotConnect, ApiError, AuthError):
+            info = None
+        if info is not None:
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_INFO: info}
+            )
+            if hasattr(entry, "runtime_data"):
+                entry.runtime_data.info = info
+        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+        return self.async_create_entry(data=dict(entry.options))
 
     async def _apps(self) -> list[dict[str, Any]]:
         """App list from the running integration, else straight from the console."""

@@ -34,6 +34,6 @@ def test_used_keys_exist() -> None:
     for key in set(re.findall(r'errors?\[?"base"\]? ?[:=] ?"([a-z_]+)"', code)) | set(
         re.findall(r'\{"base": "([a-z_]+)"\}', code)
     ):
-        assert key in strings["config"]["error"], key
+        assert key in strings["config"]["error"] or key in strings["options"]["error"], key
     for key in set(re.findall(r'reason="([a-z_]+)"', code)) | {"already_configured", "reauth_successful"}:
-        assert key in strings["config"]["abort"], key
+        assert key in strings["config"]["abort"] or key in strings["options"]["abort"], key

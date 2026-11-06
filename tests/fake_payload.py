@@ -77,6 +77,12 @@ class FakePayload:
         self.fan = {"target_c": None, "current_c": 91, "stock_c": 91}
         self.notifications: list[str] = []
         self.legacy_v01 = False  # answer /state like a v0.1 payload (no payloads/fan)
+        # v0.3
+        self.legacy_v02 = False  # /info without permissions, no /grant/* (payload v0.1/v0.2)
+        self.available = {"power_actions": True, "power_off": True, "fan_control": True}
+        self.grant_code = "654321"
+        self.grant_pending: list[str] = []
+        self._grant_attempts = 0
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -118,6 +124,14 @@ class FakePayload:
             "capabilities": {**self.capabilities, "power_off": self.power_off,
                              "fan_control": self.fan_control},
             "last_error": None,
+        } | ({} if self.legacy_v02 else {"permissions": self.permissions()})
+
+    PERMS = ("power_actions", "power_off", "fan_control")
+
+    def permissions(self) -> dict[str, dict[str, bool]]:
+        return {
+            name: {"allowed": bool(getattr(self, name)), "available": self.available[name]}
+            for name in self.PERMS
         }
 
     def app(self, title_id: str) -> dict[str, Any] | None:
@@ -182,7 +196,9 @@ class FakePayload:
             return self._json("error", {"result": "error", "message": "forced", **err}, status)
 
         open_routes = {
-            ("GET", "/info"): lambda: self._json("info", self.info()),
+            ("GET", "/info"): lambda: (
+                web.json_response(self.info()) if self.legacy_v02 else self._json("info", self.info())
+            ),
             ("POST", "/pair/start"): self._pair_start,
             ("POST", "/pair/finish"): lambda: self._pair_finish(body),
         }
@@ -210,6 +226,8 @@ class FakePayload:
             return self._json("ok", {"result": "ok"})
         if (request.method, path) == ("POST", "/fan"):
             return self._fan(body)
+        if path.startswith("/grant/") and not self.legacy_v02 and request.method == "POST":
+            return self._grant(path, body)
         if (request.method, path) == ("POST", "/power/standby"):
             if not self.power_actions:
                 return self._error(403, "power_actions_disabled")
@@ -244,6 +262,55 @@ class FakePayload:
         token = secrets.token_hex(32)
         self.tokens[body["client_id"]] = token
         return self._json("pair_finish", {"result": "ok", "token": token})
+
+    def _names(self, body: dict[str, Any]) -> list[str] | None:
+        names = body.get("permissions")
+        if (
+            not isinstance(names, list) or not names
+            or any(n not in self.PERMS for n in names) or len(set(names)) != len(names)
+        ):
+            return None
+        return names
+
+    def _grant(self, path: str, body: dict[str, Any]) -> web.Response:
+        if path == "/grant/start":
+            names = self._names(body)
+            if names is None:
+                return self._error(400, "bad_request")
+            if any(not self.available[n] for n in names):
+                return self._error(409, "not_available")
+            missing = [n for n in names if not getattr(self, n)]
+            if not missing:
+                return self._error(409, "already_allowed")
+            self.grant_pending = missing
+            self._grant_attempts = 0
+            self.notifications.append(f"grant {', '.join(missing)}: {self.grant_code}")
+            return self._json("grant_start", {"result": "ok", "expires_in": 120})
+        if path == "/grant/finish":
+            if not isinstance(body.get("code"), str):
+                return self._error(400, "bad_request")
+            if not self.grant_pending:
+                return self._error(409, "no_code")
+            if self._grant_attempts >= 5:
+                return self._error(409, "code_exhausted")
+            if body["code"] != self.grant_code:
+                self._grant_attempts += 1
+                return self._error(401, "wrong_code", attempts_left=5 - self._grant_attempts)
+            for name in self.grant_pending:
+                setattr(self, name, True)
+            self.grant_pending = []
+            return self._json("grant_finish", {"result": "ok", "permissions": self.permissions()})
+        if path == "/grant/revoke":
+            names = self._names(body)
+            if names is None:
+                return self._error(400, "bad_request")
+            for name in names:
+                setattr(self, name, False)
+            if "fan_control" in names:
+                self.fan["target_c"] = None
+                self.fan["current_c"] = self.fan["stock_c"]
+            return self._json("grant_revoke", {"result": "ok", "permissions": self.permissions()})
+        return self._error(404, "not_found")
 
     def _state(self) -> web.Response:
         app = None

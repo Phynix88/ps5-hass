@@ -32,3 +32,13 @@ async def test_post_requires_marker(fake: FakePayload) -> None:
         async with s.post(f"{fake.url}/api/v1/pair/start", json={}) as r:
             assert r.status == 403
             assert (await r.json())["error"] == "browser_guard"
+
+
+async def test_fake_info_permissions_validates_schema(fake: FakePayload) -> None:
+    fake.power_actions = True
+    fake.available["power_off"] = False
+    info = fake.info()
+    assert info["permissions"]["power_actions"] == {"allowed": True, "available": True}
+    assert info["permissions"]["power_off"]["available"] is False
+    fake._json("info", info)
+    assert fake.schema_errors == []

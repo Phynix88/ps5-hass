@@ -194,3 +194,19 @@ class Ps5HassClient:
     async def set_fan(self, threshold_c: int) -> dict[str, Any]:
         """45..85, or 0 = back to the console's own value. Returns the fan state."""
         return (await self._json("POST", "/fan", {"threshold_c": threshold_c}))["fan"]
+
+    # --- v0.3 -------------------------------------------------------------
+
+    async def grant_start(self, permissions: list[str]) -> int:
+        """Ask the console to show a grant code on the TV; returns its lifetime in s."""
+        res = await self._json("POST", "/grant/start", {"permissions": permissions})
+        return int(res["expires_in"])
+
+    async def grant_finish(self, code: str) -> dict[str, dict[str, bool]]:
+        """Redeem the code from the TV; returns the console's permissions."""
+        return (await self._json("POST", "/grant/finish", {"code": code}))["permissions"]
+
+    async def grant_revoke(self, permissions: list[str]) -> dict[str, dict[str, bool]]:
+        """Take permissions away (no code needed); returns the console's permissions."""
+        res = await self._json("POST", "/grant/revoke", {"permissions": permissions})
+        return res["permissions"]

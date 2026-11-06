@@ -1,0 +1,71 @@
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: No custom actions; the media player, buttons and standard actions cover everything.
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: No custom actions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup:
+    status: exempt
+    comment: >
+      The console is usually off or in rest mode. Setup uses the /info answer stored at
+      pairing time instead of failing; the config flow tests the connection (pairing needs it).
+  unique-config-entry: done
+  # Silver and above that the design asks for
+  config-entry-unloading: done
+  log-when-unavailable: done
+  entity-unavailable: done
+  reauthentication-flow: done
+  parallel-updates: todo
+  test-coverage: todo
+  integration-owner: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  action-exceptions: done
+  # Gold items the design asks for
+  discovery: done
+  discovery-update-info: done
+  diagnostics: done
+  entity-translations: done
+  entity-disabled-by-default: done
+  exception-translations: done
+  entity-device-class: done
+  entity-category: done
+  devices: done
+  reconfiguration-flow: todo
+  dynamic-devices:
+    status: exempt
+    comment: One device per config entry.
+  stale-devices:
+    status: exempt
+    comment: One device per config entry.
+  icon-translations: todo
+  docs-data-update: done
+  docs-examples: todo
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: todo
+  repair-issues:
+    status: exempt
+    comment: Pairing problems go through the reauth flow.
+  # Platinum
+  async-dependency: done
+  inject-websession: done
+  strict-typing: todo

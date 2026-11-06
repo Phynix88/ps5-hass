@@ -18,6 +18,7 @@ from .coordinator import (
 )
 
 PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
     Platform.EVENT,
     Platform.IMAGE,
     Platform.MEDIA_PLAYER,

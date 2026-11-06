@@ -151,6 +151,17 @@
           }
         }
       }
+    },
+    "button": {
+      "close_app": {
+        "name": "Close app"
+      },
+      "rest_mode": {
+        "name": "Rest mode"
+      },
+      "launch_favorite": {
+        "name": "Start {name}"
+      }
     }
   }
 }

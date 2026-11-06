@@ -151,6 +151,17 @@
           }
         }
       }
+    },
+    "button": {
+      "close_app": {
+        "name": "App beenden"
+      },
+      "rest_mode": {
+        "name": "Ruhemodus"
+      },
+      "launch_favorite": {
+        "name": "{name} starten"
+      }
     }
   }
 }

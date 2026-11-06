@@ -152,6 +152,12 @@
           "standby": "Ruhemodus",
           "off": "Aus"
         }
+      },
+      "payloads": {
+        "name": "Payloads"
+      },
+      "fan_threshold_current": {
+        "name": "Lüfter-Schwelle aktuell"
       }
     },
     "image": {
@@ -181,6 +187,33 @@
       },
       "launch_favorite": {
         "name": "{name} starten"
+      },
+      "power_off": {
+        "name": "Ausschalten"
+      }
+    },
+    "binary_sensor": {
+      "payload_kstuff": {
+        "name": "Jailbreak (kstuff)"
+      },
+      "payload_shadowmount": {
+        "name": "ShadowMount"
+      },
+      "payload_ftpsrv": {
+        "name": "FTP-Server"
+      },
+      "payload_websrv": {
+        "name": "websrv"
+      }
+    },
+    "number": {
+      "fan_threshold": {
+        "name": "Lüfter-Schwelle"
+      }
+    },
+    "switch": {
+      "fan_control": {
+        "name": "Lüftersteuerung"
       }
     }
   }

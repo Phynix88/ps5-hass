@@ -22,6 +22,8 @@ async def async_setup_entry(
     entities: list[ButtonEntity] = [Ps5CloseAppButton(entry)]
     if data.info.get("power_actions"):
         entities.append(Ps5RestModeButton(entry))
+    if data.info.get("capabilities", {}).get("power_off"):
+        entities.append(Ps5PowerOffButton(entry))
     names: dict[str, str] = entry.options.get(OPT_FAVORITE_NAMES, {})
     for title_id in entry.options.get(OPT_FAVORITES, []):
         # always create the button (the console is usually off at startup);
@@ -85,6 +87,22 @@ class Ps5FavoriteButton(Ps5HassEntity, ButtonEntity):
     async def async_press(self) -> None:
         try:
             await self.data.client.launch(self._title_id, replace_running=True)
+        except Ps5HassError as err:
+            raise_api_error(err)
+        await self.coordinator.async_refresh()
+
+
+class Ps5PowerOffButton(Ps5HassEntity, ButtonEntity):
+    """Powers the console off (not rest mode); only when allowed on the console."""
+
+    _attr_translation_key = "power_off"
+
+    def __init__(self, entry: Ps5HassConfigEntry) -> None:
+        super().__init__(entry, "power_off")
+
+    async def async_press(self) -> None:
+        try:
+            await self.data.client.power_off()
         except Ps5HassError as err:
             raise_api_error(err)
         await self.coordinator.async_refresh()

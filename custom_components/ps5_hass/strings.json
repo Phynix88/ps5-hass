@@ -152,6 +152,12 @@
           "standby": "Rest mode",
           "off": "Off"
         }
+      },
+      "payloads": {
+        "name": "Payloads"
+      },
+      "fan_threshold_current": {
+        "name": "Fan threshold (current)"
       }
     },
     "image": {
@@ -181,6 +187,33 @@
       },
       "launch_favorite": {
         "name": "Start {name}"
+      },
+      "power_off": {
+        "name": "Power off"
+      }
+    },
+    "binary_sensor": {
+      "payload_kstuff": {
+        "name": "Jailbreak (kstuff)"
+      },
+      "payload_shadowmount": {
+        "name": "ShadowMount"
+      },
+      "payload_ftpsrv": {
+        "name": "FTP server"
+      },
+      "payload_websrv": {
+        "name": "websrv"
+      }
+    },
+    "number": {
+      "fan_threshold": {
+        "name": "Fan threshold"
+      }
+    },
+    "switch": {
+      "fan_control": {
+        "name": "Fan control"
       }
     }
   }

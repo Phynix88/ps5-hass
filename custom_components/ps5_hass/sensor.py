@@ -67,6 +67,14 @@ SENSORS = (
         value=lambda s: s["uptime_s"],
     ),
     Ps5SensorDescription(
+        key="fan_threshold_current",
+        translation_key="fan_threshold_current",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda s: (s.get("fan") or {}).get("current_c"),
+    ),
+    Ps5SensorDescription(
         key="fan_raw",
         translation_key="fan_raw",
         state_class=SensorStateClass.MEASUREMENT,
@@ -85,6 +93,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [Ps5Sensor(entry, d) for d in SENSORS]
     entities.append(Ps5RunningAppSensor(entry))
     entities.append(Ps5PowerSensor(entry))
+    entities.append(Ps5PayloadsSensor(entry))
     async_add_entities(entities)
 
 
@@ -140,3 +149,26 @@ class Ps5PowerSensor(Ps5HassEntity, SensorEntity):
     def native_value(self) -> str | None:
         data = self.coordinator.data
         return data.power if data else None
+
+
+class Ps5PayloadsSensor(Ps5HassEntity, SensorEntity):
+    """Number of running payloads; the names as attribute."""
+
+    _attr_translation_key = "payloads"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, entry: Ps5HassConfigEntry) -> None:
+        super().__init__(entry, "payloads")
+
+    def _names(self) -> list[str]:
+        if not self.payload_up:
+            return []
+        return list(self.coordinator.data.state.get("payloads") or [])
+
+    @property
+    def native_value(self) -> int | None:
+        return len(self._names()) if self.payload_up else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"names": self._names()}

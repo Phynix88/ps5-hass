@@ -104,5 +104,53 @@
     "request_failed": {
       "message": "Die PS5 hat die Anfrage abgelehnt ({code})."
     }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_temperature": {
+        "name": "CPU-Temperatur"
+      },
+      "soc_temperature": {
+        "name": "SoC-Temperatur"
+      },
+      "storage_free": {
+        "name": "Speicher frei"
+      },
+      "uptime": {
+        "name": "Laufzeit"
+      },
+      "fan_raw": {
+        "name": "Lüfter (roh)"
+      },
+      "running_app": {
+        "name": "Laufende App",
+        "state_attributes": {
+          "title_id": {
+            "name": "Title-ID"
+          },
+          "kind": {
+            "name": "Art"
+          }
+        }
+      }
+    },
+    "image": {
+      "cover": {
+        "name": "Cover"
+      }
+    },
+    "event": {
+      "app": {
+        "name": "App",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Gestartet",
+              "stopped": "Beendet"
+            }
+          }
+        }
+      }
+    }
   }
 }

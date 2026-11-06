@@ -131,3 +131,32 @@ async def test_post_sends_guard_headers(fake: FakePayload, session) -> None:
     await c.revoke()
     assert fake.calls[-1][3] == {}
     assert not fake.tokens
+
+
+async def test_icon_rejects_non_image(fake: FakePayload, session, monkeypatch) -> None:
+    """A device posing as the console must not get HTML through HA's image proxy."""
+    from aiohttp import web
+
+    c = client(fake, session, fake.add_token())
+    monkeypatch.setattr(fake, "_icon", lambda tid, req: web.Response(
+        body=b"<script>alert(1)</script>", content_type="text/html"))
+    with pytest.raises(ApiError) as err:
+        await c.icon("PPSA00001")
+    assert err.value.code == "invalid_icon"
+    monkeypatch.setattr(fake, "_icon", lambda tid, req: web.Response(
+        body=b"<html>", content_type="image/png"))  # lies about the type
+    with pytest.raises(ApiError):
+        await c.icon("PPSA00001")
+    monkeypatch.setattr(fake, "_icon", lambda tid, req: web.Response(
+        body=b"\x89PNG\r\n\x1a\n" + b"0" * (1024 * 1024 + 1), content_type="image/png"))
+    with pytest.raises(ApiError):
+        await c.icon("PPSA00001")
+
+
+async def test_icon_rejects_bad_title_id(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    with pytest.raises(ApiError) as err:
+        await c.icon("../info")
+    assert err.value.code == "bad_title_id"
+    with pytest.raises(ApiError):
+        await c.launch("ppsa00001")

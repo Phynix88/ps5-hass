@@ -104,5 +104,53 @@
     "request_failed": {
       "message": "The PS5 refused the request ({code})."
     }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_temperature": {
+        "name": "CPU temperature"
+      },
+      "soc_temperature": {
+        "name": "SoC temperature"
+      },
+      "storage_free": {
+        "name": "Storage free"
+      },
+      "uptime": {
+        "name": "Uptime"
+      },
+      "fan_raw": {
+        "name": "Fan (raw)"
+      },
+      "running_app": {
+        "name": "Running app",
+        "state_attributes": {
+          "title_id": {
+            "name": "Title ID"
+          },
+          "kind": {
+            "name": "Kind"
+          }
+        }
+      }
+    },
+    "image": {
+      "cover": {
+        "name": "Cover"
+      }
+    },
+    "event": {
+      "app": {
+        "name": "App",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Started",
+              "stopped": "Stopped"
+            }
+          }
+        }
+      }
+    }
   }
 }

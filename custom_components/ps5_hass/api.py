@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
 
 GUARD_HEADERS = {"Content-Type": "application/json", "X-PS5-Hass": "1"}
+TITLE_ID = re.compile(r"^[A-Z]{4}[0-9]{5}$")
+ICON_MAX = 1024 * 1024
+# Only real images may reach Home Assistant's image proxy (no HTML/SVG/script).
+ICON_TYPES = {
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/jpeg": b"\xff\xd8\xff",
+}
 
 
 class Ps5HassError(Exception):
@@ -66,6 +75,7 @@ class Ps5HassClient:
         path: str,
         body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        max_bytes: int | None = None,
     ) -> tuple[int, Any, dict[str, str], bytes]:
         hdrs: dict[str, str] = dict(headers or {})
         if self.token:
@@ -80,12 +90,20 @@ class Ps5HassClient:
                 headers=hdrs,
                 timeout=self._timeout,
             ) as resp:
-                raw = await resp.read()
+                if max_bytes is None:
+                    raw = await resp.read()
+                else:  # read at most max_bytes + 1, so callers can tell "too big"
+                    buf = bytearray()
+                    async for chunk in resp.content.iter_chunked(65536):
+                        buf += chunk
+                        if len(buf) > max_bytes:
+                            break
+                    raw = bytes(buf)
                 ctype = resp.headers.get("Content-Type", "")
                 parsed: Any = None
                 if ctype.startswith("application/json") and raw:
                     try:
-                        parsed = await resp.json(content_type=None)
+                        parsed = json.loads(raw)
                     except ValueError as err:
                         raise CannotConnect(f"invalid JSON from {path}") from err
                 return resp.status, parsed, dict(resp.headers), raw
@@ -132,13 +150,27 @@ class Ps5HassClient:
         res = self._check(status, parsed)
         return AppsResult(res["etag"], res["apps"])
 
+    @staticmethod
+    def _title(title_id: str) -> str:
+        if not TITLE_ID.match(title_id):
+            raise ApiError(400, {"error": "bad_title_id", "message": "invalid title id"})
+        return title_id
+
     async def icon(self, title_id: str) -> tuple[bytes, str]:
-        status, parsed, headers, raw = await self._request("GET", f"/apps/{title_id}/icon")
+        """PNG or JPEG cover, at most 1 MB; anything else raises ApiError invalid_icon."""
+        status, parsed, headers, raw = await self._request(
+            "GET", f"/apps/{self._title(title_id)}/icon", max_bytes=ICON_MAX
+        )
         if status != 200:
             self._check(status, parsed)
-        return raw, headers.get("Content-Type", "image/png")
+        ctype = headers.get("Content-Type", "").split(";")[0].strip().lower()
+        magic = ICON_TYPES.get(ctype)
+        if magic is None or not raw.startswith(magic) or len(raw) > ICON_MAX:
+            raise ApiError(502, {"error": "invalid_icon", "message": "not a PNG/JPEG icon"})
+        return raw, ctype
 
     async def launch(self, title_id: str, replace_running: bool = False) -> dict[str, Any]:
+        self._title(title_id)
         return await self._json(
             "POST", f"/apps/{title_id}/launch", {"replace_running": replace_running}
         )

@@ -8,7 +8,7 @@ no PSN account, no cloud.
 It talks to the [ps5-hass payload](https://github.com/Phynix88/ps5-hass-payload) running on the console and to
 Sony's own status query (to tell "rest mode" from "off").
 
-![PS5 dashboard in Home Assistant](docs/images/dashboard.png)
+![PS5 dashboard in Home Assistant](https://raw.githubusercontent.com/Phynix88/ps5-hass/main/docs/images/dashboard.png)
 
 ## Requirements
 
@@ -124,7 +124,7 @@ TV.
 Unticking takes a permission away at once, without a code; its entities become unavailable (delete them if you do
 not want to see them). Options that the console cannot do are not shown.
 
-![Console permissions in the options](docs/images/console-permissions.png)
+![Console permissions in the options](https://raw.githubusercontent.com/Phynix88/ps5-hass/main/docs/images/console-permissions.png)
 
 | Permission | Allows |
 |---|---|

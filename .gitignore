@@ -2,3 +2,6 @@
 __pycache__/
 .pytest_cache/
 .superpowers/
+
+# working plans stay local (docs/superpowers/plans)
+docs/superpowers/plans/

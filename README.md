@@ -18,8 +18,9 @@ Sony's own status query (to tell "rest mode" from "off").
 
 ## Installation
 
-**HACS (once the repository is public):** HACS → ⋮ → Custom repositories → add
-`https://github.com/Phynix88/ps5-hass` as *Integration* → install **PS5 (ps5-hass)** → restart Home Assistant.
+**HACS:** HACS → ⋮ → **Custom repositories** → add `https://github.com/Phynix88/ps5-hass` with type
+*Integration* → search **PS5 (ps5-hass)** → **Download** → restart Home Assistant. Updates then show up in
+HACS and as an update entity.
 
 **Manually:** copy `custom_components/ps5_hass/` to `<config>/custom_components/ps5_hass/` and restart.
 

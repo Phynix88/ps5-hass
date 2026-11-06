@@ -27,7 +27,8 @@ Sony's own status query (to tell "rest mode" from "off").
 1. Load the payload on the PS5. Home Assistant shows **"PS5 found"** (mDNS). Otherwise add the integration
    **PS5 (ps5-hass)** and enter the console's IP address (port 8181).
 2. The console shows `ps5-hass pairing code: 123456` on the TV. Enter the 6 digits within two minutes.
-   "Show a new code" asks for another one (at most every 30 s).
+   **Missed it or too slow?** Tick **"Show a new code"** and press *Submit*; the TV shows a fresh code (at most one
+   every 30 s). Closing the dialog and starting again works too.
 
 If the console forgets the pairing (for example after its `config.json` was deleted), Home Assistant asks you to
 pair again. Removing the integration gives the pairing slot back to the console.

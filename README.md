@@ -8,13 +8,19 @@ no PSN account, no cloud.
 It talks to the [ps5-hass payload](https://github.com/Phynix88/ps5-hass-payload) running on the console and to
 Sony's own status query (to tell "rest mode" from "off").
 
+![PS5 dashboard in Home Assistant](docs/images/dashboard.png)
+
 ## Requirements
 
 - A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
-  the Payload Manager and put into the autoload). Payload **v0.3.0** for everything below; with v0.2.0
+  the Payload Manager and put into the autoload). Payload **v0.3.0 or later** (current: v0.3.1) for everything below; with v0.2.0
   permissions have to be set in `config.json` over FTP, with v0.1.0 messages, payloads, power off and the fan are
   missing as well.
 - Home Assistant 2026.10 or later, in the same local network.
+- Home Assistant must reach the console on **TCP 8181** (payload) and **UDP 9302** (Sony's status query; without it
+  rest mode shows as `off`). Automatic discovery needs mDNS: Home Assistant in Docker needs host networking, and the
+  console must be in the same subnet.
+- Give the console a fixed IP address (DHCP reservation in your router).
 
 ## Installation
 
@@ -22,38 +28,45 @@ Sony's own status query (to tell "rest mode" from "off").
 *Integration* → search **PS5 (ps5-hass)** → **Download** → restart Home Assistant. Updates then show up in
 HACS and as an update entity.
 
-**Manually:** copy `custom_components/ps5_hass/` to `<config>/custom_components/ps5_hass/` and restart.
+**Manually:** copy `custom_components/ps5_hass/` to `<config>/custom_components/ps5_hass/` and restart. To update,
+replace the folder and restart again.
 
 ## Setup
 
 1. Load the payload on the PS5. Home Assistant shows **"PS5 found"** (mDNS). Otherwise add the integration
-   **PS5 (ps5-hass)** and enter the console's IP address (port 8181).
+   **PS5 (ps5-hass)** and enter the console's IP address (port 8181) or its `.local` name. Other host names must
+   first be added to `"hosts"` in the payload's `config.json`, or Home Assistant reports "Cannot reach the payload".
 2. The console shows `ps5-hass pairing code: 123456` on the TV. Enter the 6 digits within two minutes.
    **Missed it or too slow?** Tick **"Show a new code"** and press *Submit*; the TV shows a fresh code (at most one
    every 30 s). Closing the dialog and starting again works too.
 
 If the console forgets the pairing (for example after its `config.json` was deleted), Home Assistant asks you to
-pair again. Removing the integration gives the pairing slot back to the console.
+pair again. Removing the integration gives the pairing slot back to the console (only while the console is on and
+the payload runs; otherwise the slot stays used until the pairings are reset on the console).
+
+If the console gets a new IP address, add the integration again with the new address: Home Assistant updates the
+existing entry and reports "already set up".
 
 ## What you get
 
 | Entity | Notes |
 |---|---|
-| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `standby` (rest mode), `off`. Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when allowed. Cover of the running app as picture. Media browser, see below. |
+| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `off` (rest mode or off; `sensor.ps5_power` tells them apart). Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when allowed. Cover of the running app as picture. Media browser, see below. |
 | `notify.ps5` | message on the TV, see below |
 | `sensor.ps5_cpu_temperature`, `sensor.ps5_soc_temperature` | °C |
 | `sensor.ps5_storage_free` | GiB free on the internal SSD |
 | `sensor.ps5_running_app` | name, attributes `title_id`, `kind` |
 | `sensor.ps5_power` | `on`, `standby`, `off` |
 | `sensor.ps5_payloads` | number of running payloads, attribute `names` |
-| `binary_sensor.ps5_jailbreak_kstuff`, `…_shadowmount`, `…_ftp_server`, `…_websrv` | whether that payload runs (diagnostic) |
+| `binary_sensor.ps5_jailbreak_kstuff`, `binary_sensor.ps5_shadowmount`, `binary_sensor.ps5_ftp_server`, `binary_sensor.ps5_websrv` | whether that payload runs (`kstuff.elf`, `shadowmountplus.elf`, `ftpsrv.elf`, `websrv.elf`; diagnostic) |
 | `sensor.ps5_uptime`, `sensor.ps5_fan_raw` | diagnostic, disabled by default (the fan value is the raw console value) |
 | `image.ps5_cover` | cover of the running app |
-| `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind` |
+| `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind`. No event when the console goes to rest mode or off; if the app is gone afterwards, `stopped` fires when the payload is back. Use `sensor.ps5_power` for power changes. |
 | `button.ps5_close_app` | closes the app that Home Assistant shows as running |
 | `button.ps5_rest_mode` | only when rest mode is allowed on the console |
 | `button.ps5_power_off` | only when power off is allowed on the console |
-| `switch.ps5_fan_control`, `number.ps5_fan_threshold`, `sensor.ps5_fan_threshold_current` | only when fan control is allowed on the console, see below |
+| `switch.ps5_fan_control`, `number.ps5_fan_threshold` | only when fan control is allowed on the console, see below |
+| `sensor.ps5_fan_threshold_current` | threshold the console uses right now (diagnostic) |
 | `button.ps5_start_<app>` | one per favourite (options) |
 
 Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temperatur` in German).
@@ -71,6 +84,18 @@ Settings → Devices & services → PS5 → **Configure** opens a menu:
 **Media → PS5** shows the folders *Games* and *Apps* with covers. Clicking a title starts it on the console (a
 running app is closed first). The same works from a media card on a dashboard. While the console is off the browser
 is empty.
+
+Starting a title from an automation: `media_player.select_source` with the title's name, or `media_player.play_media`
+with its title id.
+
+```yaml
+action: media_player.play_media
+target:
+  entity_id: media_player.ps5
+data:
+  media_content_type: app
+  media_content_id: PPSA01234
+```
 
 ## Messages on the TV
 
@@ -99,6 +124,8 @@ TV.
 Unticking takes a permission away at once, without a code; its entities become unavailable (delete them if you do
 not want to see them). Options that the console cannot do are not shown.
 
+![Console permissions in the options](docs/images/console-permissions.png)
+
 | Permission | Allows |
 |---|---|
 | Rest mode | `button.ps5_rest_mode`, media player turn off |
@@ -111,25 +138,40 @@ Without the options (or with payload v0.2.0): set `"power_actions"`, `"power_off
 **Fan threshold:** the temperature at which the console speeds up its fan. Lower = cooler and louder.
 
 - `switch.ps5_fan_control` on: the console uses `number.ps5_fan_threshold` (45–85 °C, never above the console's
-  factory value, 91 °C on FW 13.60). Switching on again uses the last threshold (80 °C the first time).
+  factory value, 91 °C on FW 13.60). Switching on again uses the last threshold (80 °C the first time). Setting
+  `number.ps5_fan_threshold` also switches fan control on.
 - Off: the console's factory value again.
 - `sensor.ps5_fan_threshold_current` is what the console uses right now.
 - The payload sets the value again if the console resets it. If another tool changes the fan, the payload leaves
-  it alone and reports it (`/api/v1/info`, `last_error`).
+  it alone and reports it (`/api/v1/info`, `last_error`); setting a threshold in Home Assistant again takes over
+  again.
 
-Example: cooler while a game runs.
+Example: cooler while a game runs, factory value again on the home screen.
 
 ```yaml
 triggers:
   - trigger: state
     entity_id: media_player.ps5
     to: playing
+    id: game
+  - trigger: state
+    entity_id: media_player.ps5
+    to: idle
+    id: home
 actions:
-  - action: number.set_value
-    target:
-      entity_id: number.ps5_fan_threshold
-    data:
-      value: 75
+  - choose:
+      - conditions: "{{ trigger.id == 'game' }}"
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: number.ps5_fan_threshold
+            data:
+              value: 75
+      - conditions: "{{ trigger.id == 'home' }}"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.ps5_fan_control
 ```
 
 ## Dashboard example
@@ -170,6 +212,12 @@ To send your own text from a dashboard, create a text helper (`input_text`) and 
 - The app list is fetched every 10 minutes, and at once when the console reports a change.
 - Covers go through Home Assistant's image proxy; only PNG/JPEG up to 1 MB are passed on.
 
+## Security
+
+Plain HTTP in the local network; the token is stored in Home Assistant's config entry (removed from diagnostics).
+Permissions for rest mode, power off and the fan need a code from the TV. See the payload README, *Security and
+limits*.
+
 ## Limits
 
 - Waking the console from rest mode or power off is not possible (it needs Remote Play pairing with a PSN login).
@@ -180,11 +228,26 @@ To send your own text from a dashboard, create a text helper (`input_text`) and 
 ## Troubleshooting
 
 - **Not found automatically:** add it by IP address; check that the payload runs (`http://<ps5>:8181/api/v1/info`).
-- **Pairing locked:** after 10 wrong codes in a row the console locks pairing for 15 minutes (growing).
+  mDNS does not cross subnets.
+- **"Cannot reach the payload" with a host name:** use the IP address or the `.local` name, or add the name to
+  `"hosts"` in the payload's `config.json`.
+- **Media player says `on`, everything else is unavailable:** the payload is not running. After every console restart
+  run the jailbreak again; the Payload Manager's autoload then starts ps5-hass.
+- **Rest mode shows as `off`:** UDP 9302 to the console is blocked, or "Stay connected to the internet" is off in the
+  console's power saving settings (then the console leaves the network in rest mode).
+- **Pairing locked:** after 10 wrong codes in a row the console locks pairing for 15 minutes (growing); wait, or
+  restart the payload.
 - **Power off / fan entities missing:** allow them in the options → Console permissions (see above).
 - **"Granting is locked":** 10 wrong codes in a row lock granting for 15 minutes; wait, or restart the payload.
 - **Report a problem:** download the diagnostics (Settings → Devices → PS5 → ⋮ → Download diagnostics; the token is
   removed) and add the payload's `/api/v1/info`.
+
+## Removal
+
+1. Turn `switch.ps5_fan_control` off if you used it (the console gets its factory threshold back).
+2. While the console is on and the payload runs: Settings → Devices & services → PS5 → ⋮ → **Delete**. This frees
+   the pairing slot on the console.
+3. HACS → PS5 (ps5-hass) → ⋮ → **Remove** (or delete `custom_components/ps5_hass/`), then restart Home Assistant.
 
 ## Development
 

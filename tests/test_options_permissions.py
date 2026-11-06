@@ -180,3 +180,45 @@ async def test_permissions_change_triggers_reload(hass: HomeAssistant, fake: Fak
     fake.available["power_off"] = False  # only /info.permissions changes
     assert old["capabilities"] == fake.info()["capabilities"]
     assert info_needs_reload(old, fake.info())
+
+
+async def test_rate_limited_on_permissions_form_has_placeholder(
+    hass: HomeAssistant, fake: FakePayload
+) -> None:
+    entry = await _setup(hass, fake)
+    result = await _open_permissions(hass, entry)
+    fake.fail["/grant/start"] = (429, {"error": "rate_limited", "retry_after": 12})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"power_actions": True, "power_off": False, "fan_control": False}
+    )
+    assert result["step_id"] == "permissions"
+    assert result["errors"] == {"base": "rate_limited"}
+    assert result["description_placeholders"]["retry_after"] == "12"
+
+
+async def test_mixed_grant_fails_after_revoke_uses_new_state(
+    hass: HomeAssistant, fake: FakePayload
+) -> None:
+    fake.fan_control = True
+    entry = await _setup(hass, fake)
+    result = await _open_permissions(hass, entry)
+    fake.fail["/grant/start"] = (429, {"error": "rate_limited", "retry_after": 12})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"power_actions": True, "power_off": False, "fan_control": False}
+    )
+    assert fake.fan_control is False
+    defaults = {str(k): k.default() for k in result["data_schema"].schema}
+    assert defaults["fan_control"] is False  # not shown as ticked again
+    assert entry.data[CONF_INFO]["permissions"]["fan_control"]["allowed"] is False
+
+
+def test_permissions_description_explains_hidden_ones() -> None:
+    import json
+    import pathlib
+
+    comp = pathlib.Path(__file__).parent.parent / "custom_components" / "ps5_hass"
+    for name in ("strings.json", "translations/en.json"):
+        text = json.loads((comp / name).read_text())["options"]["step"]["permissions"]["description"]
+        assert "cannot do are not shown" in text
+    de = json.loads((comp / "translations/de.json").read_text())
+    assert "nicht angezeigt" in de["options"]["step"]["permissions"]["description"]

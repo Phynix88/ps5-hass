@@ -69,7 +69,7 @@
       },
       "permissions": {
         "title": "Freigaben der Konsole",
-        "description": "Was Home Assistant an der Konsole darf. Ein gesetztes Häkchen zeigt einen Code am Fernseher, den du im nächsten Schritt eingibst. Ein entferntes Häkchen entzieht die Freigabe sofort.",
+        "description": "Was Home Assistant an der Konsole darf. Ein gesetztes Häkchen zeigt einen Code am Fernseher, den du im nächsten Schritt eingibst. Ein entferntes Häkchen entzieht die Freigabe sofort. Was die Konsole nicht kann, wird nicht angezeigt.",
         "data": {
           "power_actions": "Ruhemodus",
           "power_off": "Ausschalten",

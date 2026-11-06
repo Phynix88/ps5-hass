@@ -326,8 +326,13 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
                 if perms.get(name, {}).get("available")
             }
         )
+        self._placeholders.setdefault("attempts_left", "5")
+        self._placeholders.setdefault("retry_after", "30")
         return self.async_show_form(
-            step_id="permissions", data_schema=schema, errors=errors
+            step_id="permissions",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders=dict(self._placeholders),
         )
 
     async def async_step_permissions(
@@ -352,7 +357,10 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
         grant = [n for n in shown if n in wanted and n not in allowed]
         try:
             if revoke:
-                await self._client().grant_revoke(revoke)
+                perms = await self._client().grant_revoke(revoke)
+                # the console changed: entities must follow even if the grant
+                # below fails or the dialog is closed
+                await self._store_info(perms)
             if not grant:
                 return await self._permissions_done()
             self._pending = grant
@@ -424,14 +432,17 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
             return self._grant_form(self._grant_error(err))
         return await self._permissions_done()
 
-    async def _permissions_done(self) -> ConfigFlowResult:
-        """Store the new /info, reload the entry (entities depend on it) and keep
-        the options as they are; OptionsFlowWithReload would not reload here."""
+    async def _store_info(self, perms: dict[str, dict[str, bool]] | None = None) -> None:
+        """Store the console's new /info (or at least `perms`) in the entry and
+        schedule a reload: entities depend on it, and OptionsFlowWithReload does
+        not reload when the options themselves stay the same."""
         entry = self.config_entry
         try:
             info = _clean_info(await self._client().info())
         except (CannotConnect, ApiError, AuthError):
             info = None
+            if perms is not None:
+                info = {**entry.data.get(CONF_INFO, {}), "permissions": perms}
         if info is not None:
             self.hass.config_entries.async_update_entry(
                 entry, data={**entry.data, CONF_INFO: info}
@@ -439,7 +450,10 @@ class Ps5HassOptionsFlow(OptionsFlowWithReload):
             if hasattr(entry, "runtime_data"):
                 entry.runtime_data.info = info
         self.hass.config_entries.async_schedule_reload(entry.entry_id)
-        return self.async_create_entry(data=dict(entry.options))
+
+    async def _permissions_done(self) -> ConfigFlowResult:
+        await self._store_info()
+        return self.async_create_entry(data=dict(self.config_entry.options))
 
     async def _apps(self) -> list[dict[str, Any]]:
         """App list from the running integration, else straight from the console."""

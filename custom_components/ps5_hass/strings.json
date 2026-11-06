@@ -69,7 +69,7 @@
       },
       "permissions": {
         "title": "Console permissions",
-        "description": "What Home Assistant may do on the console. Ticking a box shows a code on the TV that you enter in the next step. Unticking takes the permission away at once.",
+        "description": "What Home Assistant may do on the console. Ticking a box shows a code on the TV that you enter in the next step. Unticking takes the permission away at once. Options the console cannot do are not shown.",
         "data": {
           "power_actions": "Rest mode",
           "power_off": "Power off",

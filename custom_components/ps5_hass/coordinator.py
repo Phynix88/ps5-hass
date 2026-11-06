@@ -109,6 +109,8 @@ class StateCoordinator(DataUpdateCoordinator[ConsoleState]):
         self.apps = apps
         self._failing_since: datetime | None = None
         self._reachable: bool | None = None
+        self._check_info = False  # set after any failed poll
+        self._payload_uptime: int | None = None
 
     async def _async_update_data(self) -> ConsoleState:
         try:
@@ -123,6 +125,16 @@ class StateCoordinator(DataUpdateCoordinator[ConsoleState]):
         self._failing_since = None
         if self._reachable is False:
             _LOGGER.info("PS5 payload at %s is reachable again", self.client_host)
+        uptime = state.get("payload_uptime_s")
+        restarted = (
+            isinstance(uptime, int)
+            and self._payload_uptime is not None
+            and uptime < self._payload_uptime
+        )
+        self._payload_uptime = uptime if isinstance(uptime, int) else None
+        if self._check_info or restarted:
+            # a gap of any length may hide a payload restart with other settings
+            self._check_info = False
             await self._refresh_info()
         self._reachable = True
         if state.get("apps_etag") != self.apps.etag:
@@ -135,6 +147,7 @@ class StateCoordinator(DataUpdateCoordinator[ConsoleState]):
         return self.config_entry.data[CONF_HOST]
 
     async def _unreachable(self) -> ConsoleState:
+        self._check_info = True
         now = dt_util.utcnow()
         if self._failing_since is None:
             self._failing_since = now
@@ -160,7 +173,7 @@ class StateCoordinator(DataUpdateCoordinator[ConsoleState]):
             return
         if hasattr(entry, "runtime_data"):
             entry.runtime_data.info = info
-        reload = info_needs_reload(old, info)
+        # no update listener: storing the new /info does not reload by itself
         self.hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_INFO: info})
-        if reload:
+        if info_needs_reload(old, info):
             self.hass.config_entries.async_schedule_reload(entry.entry_id)

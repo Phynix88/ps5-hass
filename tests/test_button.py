@@ -62,10 +62,3 @@ async def test_favorite_buttons_created_and_launch(hass, fake) -> None:
     assert fake.running[0] == "PPSA96708"
     fake_call = [c for c in fake.calls if c[1] == "/apps/PPSA96708/launch"][-1]
     assert fake_call[3] == {"replace_running": True}
-
-
-async def test_uninstalled_favorite_skipped(hass, fake) -> None:
-    await _setup(hass, fake, favorites=["NOPE00001", "PPSA96708"])
-    buttons = [s.entity_id for s in hass.states.async_all("button")]
-    assert "button.ps5_start_hikari" in buttons
-    assert not [b for b in buttons if "nope" in b]

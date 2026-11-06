@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
@@ -33,6 +34,7 @@ from .const import (
     DEVICE_NAME,
     DOMAIN,
     LABEL,
+    OPT_FAVORITE_NAMES,
     OPT_FAVORITES,
     OPT_SOURCES,
 )
@@ -241,24 +243,36 @@ class Ps5HassConfigFlow(ConfigFlow, domain=DOMAIN):
         return Ps5HassOptionsFlow()
 
 
-class Ps5HassOptionsFlow(OptionsFlow):
-    """Source list filter and favourite apps."""
+class Ps5HassOptionsFlow(OptionsFlowWithReload):
+    """Source list filter and favourite apps; saving reloads the entry."""
+
+    def __init__(self) -> None:
+        self._names: dict[str, str] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        if user_input is not None:
-            return self.async_create_entry(data=user_input)
         entry = self.config_entry
+        old_names: dict[str, str] = dict(entry.options.get(OPT_FAVORITE_NAMES, {}))
+        if user_input is not None:
+            # remember the names, so the buttons keep them while the console is off
+            favorites = user_input.get(OPT_FAVORITES, [])
+            names = {
+                tid: self._names.get(tid) or old_names.get(tid) or tid for tid in favorites
+            }
+            return self.async_create_entry(data={**user_input, OPT_FAVORITE_NAMES: names})
         favorites: list[str] = list(entry.options.get(OPT_FAVORITES, []))
         apps = await self._apps()
         names = {a["title_id"]: a["name"] for a in apps}
+        self._names = names
         options = [
             SelectOptionDict(value=tid, label=f"{name} ({tid})")
             for tid, name in sorted(names.items(), key=lambda kv: kv[1].casefold())
         ]
         options += [
-            SelectOptionDict(value=tid, label=tid) for tid in favorites if tid not in names
+            SelectOptionDict(value=tid, label=f"{old_names.get(tid, tid)} ({tid})")
+            for tid in favorites
+            if tid not in names
         ]
         schema = vol.Schema(
             {

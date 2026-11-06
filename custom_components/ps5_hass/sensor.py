@@ -84,6 +84,7 @@ async def async_setup_entry(
 ) -> None:
     entities: list[SensorEntity] = [Ps5Sensor(entry, d) for d in SENSORS]
     entities.append(Ps5RunningAppSensor(entry))
+    entities.append(Ps5PowerSensor(entry))
     async_add_entities(entities)
 
 
@@ -119,3 +120,23 @@ class Ps5RunningAppSensor(Ps5HassEntity, SensorEntity):
             return {"title_id": None, "kind": None}
         meta = app_by_id(self.data.apps.data, app["title_id"])
         return {"title_id": app["title_id"], "kind": meta["kind"] if meta else None}
+
+
+class Ps5PowerSensor(Ps5HassEntity, SensorEntity):
+    """on / standby (rest mode) / off, also while the payload is away."""
+
+    _attr_translation_key = "power"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["on", "standby", "off"]
+
+    def __init__(self, entry: Ps5HassConfigEntry) -> None:
+        super().__init__(entry, "power")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success
+
+    @property
+    def native_value(self) -> str | None:
+        data = self.coordinator.data
+        return data.power if data else None

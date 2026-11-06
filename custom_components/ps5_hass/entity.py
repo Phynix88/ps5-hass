@@ -98,7 +98,7 @@ class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
 
     @property
     def available(self) -> bool:
-        return self.payload_up
+        return super().available and self.payload_up
 
     @property
     def running(self) -> dict[str, Any] | None:

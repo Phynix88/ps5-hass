@@ -45,7 +45,9 @@ async def test_states_for_each_console_state(hass, fake, freezer) -> None:
     ddp = AsyncMock(return_value="standby")
     fake.down = True
     with patch(DDP, ddp):
-        await tick_until(hass, freezer, lambda: hass.states.get(ENTITY).state == "standby")
+        # rest mode: media player off (STANDBY is deprecated), power sensor "standby"
+        await tick_until(hass, freezer, lambda: hass.states.get("sensor.ps5_power").state == "standby")
+        assert hass.states.get(ENTITY).state == "off"
         ddp.return_value = "on"
         await tick_until(hass, freezer, lambda: hass.states.get(ENTITY).state == "on")
         ddp.return_value = "off"
@@ -89,7 +91,7 @@ async def test_select_source_when_off_raises(hass, fake, freezer) -> None:
     await _setup(hass, fake)
     fake.down = True
     with patch(DDP, AsyncMock(return_value="standby")):
-        await tick_until(hass, freezer, lambda: hass.states.get(ENTITY).state == "standby")
+        await tick_until(hass, freezer, lambda: hass.states.get(ENTITY).state == "off")
         with pytest.raises(HomeAssistantError) as err:
             await _call(hass, "select_source", source="Hikari")
     assert err.value.translation_key == "console_off"

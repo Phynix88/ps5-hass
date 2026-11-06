@@ -132,6 +132,14 @@
             "name": "Kind"
           }
         }
+      },
+      "power": {
+        "name": "Power",
+        "state": {
+          "on": "On",
+          "standby": "Rest mode",
+          "off": "Off"
+        }
       }
     },
     "image": {

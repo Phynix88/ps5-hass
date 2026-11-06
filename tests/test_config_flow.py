@@ -199,7 +199,11 @@ async def test_options_sources_and_favorites(hass: HomeAssistant, fake: FakePayl
         result["flow_id"], {OPT_SOURCES: "games", OPT_FAVORITES: ["PPSA96708", "PPSA99169"]}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {OPT_SOURCES: "games", OPT_FAVORITES: ["PPSA96708", "PPSA99169"]}
+    assert entry.options == {
+        OPT_SOURCES: "games",
+        OPT_FAVORITES: ["PPSA96708", "PPSA99169"],
+        "favorite_names": {"PPSA96708": "Hikari", "PPSA99169": "RetroArch"},
+    }
 
 
 async def test_remove_entry_revokes_and_ignores_errors(hass: HomeAssistant, fake: FakePayload) -> None:

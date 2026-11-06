@@ -8,7 +8,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import Ps5HassError
-from .const import DOMAIN, OPT_FAVORITES
+from .const import DOMAIN, OPT_FAVORITE_NAMES, OPT_FAVORITES
 from .coordinator import Ps5HassConfigEntry, app_by_id
 from .entity import Ps5HassEntity, raise_api_error
 
@@ -22,10 +22,13 @@ async def async_setup_entry(
     entities: list[ButtonEntity] = [Ps5CloseAppButton(entry)]
     if data.info.get("power_actions"):
         entities.append(Ps5RestModeButton(entry))
+    names: dict[str, str] = entry.options.get(OPT_FAVORITE_NAMES, {})
     for title_id in entry.options.get(OPT_FAVORITES, []):
+        # always create the button (the console is usually off at startup);
+        # the name was stored when the favourite was chosen
         app = app_by_id(data.apps.data, title_id)
-        if app:  # favourites that are no longer installed get no button
-            entities.append(Ps5FavoriteButton(entry, title_id, app["name"]))
+        name = names.get(title_id) or (app["name"] if app else title_id)
+        entities.append(Ps5FavoriteButton(entry, title_id, name))
     async_add_entities(entities)
 
 
@@ -68,6 +71,16 @@ class Ps5FavoriteButton(Ps5HassEntity, ButtonEntity):
         super().__init__(entry, f"launch_{title_id.lower()}")
         self._title_id = title_id
         self._attr_translation_placeholders = {"name": name}
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self.data.apps.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def available(self) -> bool:
+        apps = self.data.apps.data
+        installed = not apps or app_by_id(apps, self._title_id) is not None
+        return super().available and installed
 
     async def async_press(self) -> None:
         try:

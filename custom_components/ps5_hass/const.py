@@ -13,6 +13,7 @@ CONF_CLIENT_ID: Final = "client_id"
 CONF_INFO: Final = "info"
 OPT_SOURCES: Final = "sources"  # "all" | "games"
 OPT_FAVORITES: Final = "favorites"
+OPT_FAVORITE_NAMES: Final = "favorite_names"  # title id -> name at selection time
 LABEL: Final = "Home Assistant"
 MANUFACTURER: Final = "Sony Interactive Entertainment"
 DEVICE_NAME: Final = "PS5"

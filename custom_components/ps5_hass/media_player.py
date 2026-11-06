@@ -17,9 +17,11 @@ from .const import DOMAIN, OPT_SOURCES
 from .coordinator import Ps5HassConfigEntry, app_by_id
 from .entity import Ps5HassEntity, display_name, raise_api_error, source_names
 
+# MediaPlayerState.STANDBY is deprecated in HA; rest mode shows as off here and
+# as "standby" in the power sensor.
 POWER_STATES = {
     "on": MediaPlayerState.ON,
-    "standby": MediaPlayerState.STANDBY,
+    "standby": MediaPlayerState.OFF,
     "off": MediaPlayerState.OFF,
 }
 
@@ -51,7 +53,8 @@ class Ps5MediaPlayer(Ps5HassEntity, MediaPlayerEntity):
 
     @property
     def available(self) -> bool:
-        return True
+        # off/rest mode are states, not unavailability; a failed update (401, 500) is
+        return self.coordinator.last_update_success
 
     @property
     def _only_games(self) -> bool:
@@ -134,8 +137,10 @@ class Ps5MediaPlayer(Ps5HassEntity, MediaPlayerEntity):
     async def async_media_stop(self) -> None:
         self._require_payload()
         app = self.running
+        if not app:  # never close an app the user has not seen
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="no_app")
         try:
-            await self.data.client.close(app["title_id"] if app else None)
+            await self.data.client.close(app["title_id"])
         except Ps5HassError as err:
             raise_api_error(err)
         await self.coordinator.async_refresh()

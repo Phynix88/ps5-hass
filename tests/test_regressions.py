@@ -1,4 +1,4 @@
-"""Regression tests for the final review findings."""
+"""Regression tests: favourites while the console is off, re-reading /info, rest mode, errors."""
 
 from __future__ import annotations
 

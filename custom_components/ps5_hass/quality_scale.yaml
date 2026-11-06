@@ -26,7 +26,7 @@ rules:
       The console is usually off or in rest mode. Setup uses the /info answer stored at
       pairing time instead of failing; the config flow tests the connection (pairing needs it).
   unique-config-entry: done
-  # Silver and above that the design asks for
+  # Silver and above
   config-entry-unloading: done
   log-when-unavailable: done
   entity-unavailable: done
@@ -37,7 +37,7 @@ rules:
   docs-configuration-parameters: done
   docs-installation-parameters: done
   action-exceptions: done
-  # Gold items the design asks for
+  # Gold items
   discovery: done
   discovery-update-info: done
   diagnostics: done

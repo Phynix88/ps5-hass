@@ -1,4 +1,4 @@
-"""Options → console permissions with a code on the TV (design v0.3 §6)."""
+"""Options → console permissions with a code on the TV."""
 
 from __future__ import annotations
 

@@ -248,7 +248,7 @@ PERMISSIONS = ("power_actions", "power_off", "fan_control")
 
 class Ps5HassOptionsFlow(OptionsFlowWithReload):
     """Menu: source list and favourites (saving reloads the entry), or the
-    console permissions (granted with a code on the TV, design v0.3 §6)."""
+    console permissions (granted with a code on the TV)."""
 
     def __init__(self) -> None:
         self._names: dict[str, str] = {}

@@ -6,11 +6,13 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
 
 from .api import ApiError, Ps5HassError
+from .const import DOMAIN
 from .coordinator import Ps5HassConfigEntry
 from .entity import Ps5HassEntity, Ps5PayloadEntity, raise_api_error
 from .payloads import listed_by_key
@@ -162,6 +164,10 @@ class Ps5PayloadSwitch(Ps5PayloadEntity, SwitchEntity):
         listed = self._listed()
         if listed is None:  # not listed any more: the Payload Manager would say 404 for it too
             raise_api_error(ApiError(404, {"error": "unknown_payload"}))
+        console = self.entry.runtime_data.state.data
+        if console is not None and console.state and console.state.get("app") is not None:
+            # a game or app runs: no request at all (a payload older than v0.4.1 would obey)
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="app_running")
         client = self.entry.runtime_data.client
         try:
             if on:

@@ -231,6 +231,7 @@ def test_payload_control_flip_is_no_reload() -> None:
 
 async def test_running_app_refuses_start_and_stop(hass: HomeAssistant, fake) -> None:
     await _setup(hass, fake)
+    # the state has not been polled since: the switch still asks, the payload refuses
     fake.running = ("PPSA00001", 100)  # a game runs
     for service in ("turn_on", "turn_off"):
         with pytest.raises(HomeAssistantError) as err:
@@ -254,7 +255,25 @@ async def test_cheat_payloads_never_get_a_switch(hass: HomeAssistant, fake, free
                               "running": False, "protected": True})
     await tick(hass, freezer, 31)
     assert _payload_switches(hass) == {FTPSRV, WEBSRV}
-    # a payload that turns into CheatRunner keeps its entity but is unavailable
-    fake.payload_list[1]["protected"] = True
+    # an existing payload that is now listed as CheatRunner keeps its entity but is unavailable
+    # (the payload protects it by its name; the fake does the same)
+    fake.payload_list[1]["name"] = "CheatRunner"
     await tick(hass, freezer, 31)
     assert hass.states.get(WEBSRV).state == "unavailable"
+
+
+async def test_known_running_app_refuses_without_a_request(hass: HomeAssistant, fake, freezer) -> None:
+    # also protects against a payload older than v0.4.1, which would obey
+    await _setup(hass, fake)
+    fake.running = ("PPSA00001", 100)
+    await tick(hass, freezer, 11)  # the state coordinator sees the game
+    for service in ("turn_on", "turn_off"):
+        with pytest.raises(HomeAssistantError) as err:
+            await hass.services.async_call("switch", service, {"entity_id": FTPSRV}, blocking=True)
+        assert err.value.translation_key == "app_running"
+    assert _requests(fake, "/payloads/start") == []
+    assert _requests(fake, "/payloads/stop") == []
+    fake.running = None
+    await tick(hass, freezer, 11)
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    assert len(_requests(fake, "/payloads/start")) == 1

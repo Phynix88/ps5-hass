@@ -194,3 +194,28 @@ class Ps5HassClient:
     async def set_fan(self, threshold_c: int) -> dict[str, Any]:
         """45..85, or 0 = back to the console's own value. Returns the fan state."""
         return (await self._json("POST", "/fan", {"threshold_c": threshold_c}))["fan"]
+
+    # --- v0.4 -------------------------------------------------------------
+
+    async def playtime(self, since: int | None = None) -> dict[str, Any]:
+        """Play time per title and the finished sessions ending at or after `since` (Unix s)."""
+        query = "" if since is None else f"?since={since}"
+        return await self._json("GET", f"/playtime{query}")
+
+    async def set_keep_awake(self, on: bool) -> bool:
+        """Keep the console from powering down by itself; returns the new setting."""
+        return bool((await self._json("POST", "/keep_awake", {"on": on}))["keep_awake"])
+
+    async def suspend(self) -> None:
+        """Minimise the running game (it stays open, paused)."""
+        await self._json("POST", "/apps/running/suspend")
+
+    async def payloads(self) -> dict[str, Any]:
+        """The payloads the Payload Manager has installed; `available` false when it is unreachable."""
+        return await self._json("GET", "/payloads")
+
+    async def payload_start(self, slot: str) -> None:
+        await self._json("POST", "/payloads/start", {"slot": slot})
+
+    async def payload_stop(self, slot: str) -> None:
+        await self._json("POST", "/payloads/stop", {"slot": slot})

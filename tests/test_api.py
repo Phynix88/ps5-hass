@@ -160,3 +160,127 @@ async def test_icon_rejects_bad_title_id(fake: FakePayload, session) -> None:
     assert err.value.code == "bad_title_id"
     with pytest.raises(ApiError):
         await c.launch("ppsa00001")
+
+
+# --- v0.4 ---------------------------------------------------------------
+
+
+async def test_playtime(fake: FakePayload, session) -> None:
+    fake.playtime_titles = [
+        {"title_id": "PPSA00001", "name": "Game", "kind": "game", "total_s": 5400,
+         "console_total_s": None},
+    ]
+    fake.playtime_sessions = [
+        {"title_id": "PPSA00001", "kind": "game", "start": 1790000000, "duration_s": 1800},
+    ]
+    fake.playtime_current = {
+        "title_id": "PPSA00001", "kind": "game", "start": 1790003000, "duration_s": 95,
+    }
+    c = client(fake, session, fake.add_token())
+    res = await c.playtime()
+    assert res["foreground"] is True
+    assert res["titles"][0]["total_s"] == 5400
+    assert res["current"]["duration_s"] == 95
+    assert fake.calls[-1][:2] == ("GET", "/playtime")
+    # since is passed on, and the fake filters finished sessions that end before it
+    res = await c.playtime(since=1790002000)
+    assert res["sessions"] == []
+    assert len(res["titles"]) == 1
+    res = await c.playtime(since=1790000000)
+    assert len(res["sessions"]) == 1
+
+
+async def test_playtime_bad_since(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    with pytest.raises(ApiError) as err:
+        await c.playtime(since=-5)
+    assert (err.value.status, err.value.code) == (400, "bad_request")
+
+
+async def test_set_keep_awake(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    assert await c.set_keep_awake(True) is True
+    assert fake.keep_awake is True
+    assert fake.calls[-1][3] == {"on": True}
+    assert await c.set_keep_awake(False) is False
+    assert fake.keep_awake is False
+
+
+async def test_set_keep_awake_not_on(fake: FakePayload, session) -> None:
+    fake.power_state = "rest"
+    c = client(fake, session, fake.add_token())
+    with pytest.raises(ApiError) as err:
+        await c.set_keep_awake(True)
+    assert (err.value.status, err.value.code) == (409, "not_on")
+    assert await c.set_keep_awake(False) is False  # switching off is always allowed
+
+
+async def test_suspend(fake: FakePayload, session) -> None:
+    fake.running = ("PPSA00001", 100)
+    c = client(fake, session, fake.add_token())
+    assert await c.suspend() is None
+    assert fake.running is None
+    assert fake.calls[-1][:2] == ("POST", "/apps/running/suspend")
+
+
+async def test_suspend_not_running(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    with pytest.raises(ApiError) as err:
+        await c.suspend()
+    assert (err.value.status, err.value.code) == (409, "not_running")
+
+
+async def test_payloads(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    assert fake.info()["capabilities"]["payload_control"] is False  # not before the first call
+    res = await c.payloads()
+    assert res["available"] is True
+    assert {"slot", "name", "version", "running", "protected"} <= set(res["payloads"][0])
+    assert any(p["protected"] for p in res["payloads"])
+    assert fake.info()["capabilities"]["payload_control"] is True
+
+
+async def test_payloads_manager_unreachable(fake: FakePayload, session) -> None:
+    fake.payload_manager = False
+    c = client(fake, session, fake.add_token())
+    assert await c.payloads() == {"result": "ok", "available": False, "payloads": []}
+    assert fake.info()["capabilities"]["payload_control"] is False
+
+
+async def test_payload_start_stop(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    slot = fake.payload_list[0]["slot"]
+    assert not fake.payload_list[0]["running"]
+    assert await c.payload_start(slot) is None
+    assert fake.payload_list[0]["running"] is True
+    assert fake.calls[-1][3] == {"slot": slot}
+    with pytest.raises(ApiError) as err:
+        await c.payload_start(slot)
+    assert (err.value.status, err.value.code) == (409, "already_running")
+    assert await c.payload_stop(slot) is None
+    assert fake.payload_list[0]["running"] is False
+    with pytest.raises(ApiError) as err:
+        await c.payload_stop(slot)
+    assert (err.value.status, err.value.code) == (409, "not_running")
+
+
+async def test_payload_start_errors(fake: FakePayload, session) -> None:
+    c = client(fake, session, fake.add_token())
+    protected = next(p["slot"] for p in fake.payload_list if p["protected"])
+    for call in (c.payload_start, c.payload_stop):
+        with pytest.raises(ApiError) as err:
+            await call(protected)
+        assert (err.value.status, err.value.code) == (403, "protected")
+        with pytest.raises(ApiError) as err:
+            await call("repo/nothing@00000000")
+        assert (err.value.status, err.value.code) == (404, "unknown_payload")
+    assert [p["running"] for p in fake.payload_list] == [False, False, True]  # kstuff untouched
+    fake.payload_manager = False
+    with pytest.raises(ApiError) as err:
+        await c.payload_start(fake.payload_list[0]["slot"])
+    assert (err.value.status, err.value.code) == (503, "payload_manager_unavailable")
+    fake.payload_manager = True
+    fake.power_state = "rest"
+    with pytest.raises(ApiError) as err:
+        await c.payload_stop(fake.payload_list[0]["slot"])
+    assert (err.value.status, err.value.code) == (409, "not_on")

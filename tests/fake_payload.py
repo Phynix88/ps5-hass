@@ -1,7 +1,7 @@
 """A stateful fake of the ps5-hass payload API (/api/v1).
 
 Every JSON answer is validated against tests/fixtures/schema.json, a copy of
-api/schema.json from Phynix88/ps5-hass-payload (v0.2, copied at commit cb97de0).
+api/schema.json from Phynix88/ps5-hass-payload (v0.4 branch).
 A violation is answered with 500 and recorded in `schema_errors`; the `fake`
 fixture fails the test when any are left.
 """
@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import secrets
 import struct
+import time
 import zlib
 from typing import Any
 
@@ -23,6 +25,14 @@ SCHEMA = json.loads((FIXTURES / "schema.json").read_text())
 APPS = json.loads((FIXTURES / "apps.json").read_text())
 CODE = "123456"
 DEVICE_ID = "00112233445566778899aabbccddeeff"
+V04_CAPABILITIES = ("focus", "power_state", "suspend", "keep_awake", "soc_power", "playtime",
+                    "payload_control")
+# Routes that call a console function; the payload refuses them with 409 not_on outside "on".
+NEEDS_ON = {
+    ("POST", "/apps/running/close"), ("POST", "/apps/running/suspend"), ("POST", "/power/standby"),
+    ("POST", "/power/off"), ("POST", "/notify"), ("POST", "/fan"), ("POST", "/payloads/start"),
+    ("POST", "/payloads/stop"), ("POST", "/pair/start"), ("POST", "/pair/finish"),
+}
 
 
 def tiny_png(seed: int = 0) -> bytes:
@@ -60,6 +70,9 @@ class FakePayload:
         self.capabilities = {
             "temps": True, "fan": True, "notify": True, "random": True,
             "launch": True, "standby": True, "mdns": True,
+            # v0.4; payload_control is left out on purpose: it follows the first /payloads call
+            "focus": True, "power_state": True, "suspend": True, "keep_awake": True,
+            "soc_power": True, "playtime": True,
         }
         self.has_user = True
         self.version = "0.1.0"
@@ -83,6 +96,28 @@ class FakePayload:
         # v0.4 has no permissions: what the console can do is allowed. A v0.3 payload
         # still answers 403 *_disabled for what is not allowed (the flags above).
         self.legacy_v03 = False
+        # v0.4
+        self.power_state = "on"  # on | going_to_rest | rest | shutting_down | unknown
+        self.keep_awake = False
+        self.soc_power: dict[str, Any] | None = {
+            "total_mw": 48000,
+            "rails": [{"mw": 30000, "mv": 1000, "ma": 30000}, {"mw": 18000, "mv": 1200, "ma": 15000}],
+        }
+        self.drives: list[dict[str, Any]] = []
+        self.playtime_titles: list[dict[str, Any]] = []
+        self.playtime_sessions: list[dict[str, Any]] = []
+        self.playtime_current: dict[str, Any] | None = None
+        # What the Payload Manager lists (`payloads` above are the running process names).
+        self.payload_list: list[dict[str, Any]] = [
+            {"slot": "repo/ftpsrv@e8cce5d1", "name": "ftpsrv", "version": "1.2",
+             "running": False, "protected": False},
+            {"slot": "repo/websrv@0a1b2c3d", "name": "websrv", "version": "",
+             "running": False, "protected": False},
+            {"slot": "repo/kstuff@11223344", "name": "kstuff", "version": "1.6",
+             "running": True, "protected": True},
+        ]
+        self.payload_manager = True  # False: not reachable
+        self._pldmgr_ok = False  # the last call to the Payload Manager worked
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -115,14 +150,19 @@ class FakePayload:
         return token
 
     def info(self) -> dict[str, Any]:
+        caps = {**self.capabilities, "power_off": self.power_off, "fan_control": self.fan_control}
+        if self.legacy_v03 or self.legacy_v02:
+            for key in V04_CAPABILITIES:
+                caps.pop(key, None)
+        else:
+            caps.setdefault("payload_control", self._pldmgr_ok)
         return {
             "result": "ok", "name": "ps5-hass", "version": self.version,
             "commit": "abc1234", "api": 1, "device_id": self.device_id,
             "model": "CFI-TEST", "firmware": "13.60",
             "paired": bool(self.tokens), "power_actions": self.power_actions,
             "config": "ok",
-            "capabilities": {**self.capabilities, "power_off": self.power_off,
-                             "fan_control": self.fan_control},
+            "capabilities": caps,
             "last_error": None,
         } | ({} if self.legacy_v02 else {"permissions": self.permissions()})
 
@@ -137,8 +177,9 @@ class FakePayload:
 
     def _disabled(self, code: str) -> web.Response:
         """A v0.3 payload says 403 for what is not allowed, v0.4 that it cannot."""
-        if self.legacy_v03:
-            return self._error(403, code)
+        if self.legacy_v03:  # a v0.3 code the v0.4 schema no longer knows: not checked
+            return web.json_response(
+                {"result": "error", "error": code, "message": code}, status=403)
         return self._error(409, "not_available")
 
     def app(self, title_id: str) -> dict[str, Any] | None:
@@ -204,13 +245,17 @@ class FakePayload:
 
         open_routes = {
             ("GET", "/info"): lambda: (
-                web.json_response(self.info()) if self.legacy_v02 else self._json("info", self.info())
+    web.json_response(self.info()) if self.legacy_v02 or self.legacy_v03
+                else self._json("info", self.info())
             ),
             ("POST", "/pair/start"): self._pair_start,
             ("POST", "/pair/finish"): lambda: self._pair_finish(body),
         }
-        if (request.method, path) in open_routes:
-            return open_routes[(request.method, path)]()
+        route = (request.method, path)
+        if route in NEEDS_ON and not self._is_on():
+            return self._error(409, "not_on")
+        if route in open_routes:
+            return open_routes[route]()
 
         client = self._client(request)
         if client is None:
@@ -240,6 +285,17 @@ class FakePayload:
                 return self._disabled("power_actions_disabled")
             self.standby_calls += 1
             return self._json("ok", {"result": "ok"})
+        if not self.legacy_v02 and not self.legacy_v03:
+            v04 = {
+                ("POST", "/apps/running/suspend"): self._suspend,
+                ("POST", "/keep_awake"): lambda: self._keep_awake(body),
+                ("GET", "/playtime"): lambda: self._playtime(request),
+                ("GET", "/payloads"): self._payloads,
+                ("POST", "/payloads/start"): lambda: self._payload_action(body, start=True),
+                ("POST", "/payloads/stop"): lambda: self._payload_action(body, start=False),
+            }
+            if route in v04:
+                return v04[route]()
         parts = path.strip("/").split("/")
         if len(parts) == 3 and parts[0] == "apps" and parts[2] in ("icon", "launch"):
             if parts[2] == "icon" and request.method == "GET":
@@ -297,7 +353,19 @@ class FakePayload:
             "uptime_s": 284, "payload_uptime_s": 120, "apps_etag": self.etag,
             "payloads": list(self.payloads), "fan": dict(self.fan),
         }
+        if not self._is_on():  # the payload reads nothing from the console outside "on"
+            body.update(
+                in_app=False, app=None, temps={"cpu": None, "soc": None}, fan_raw=None,
+                storage=dict.fromkeys(body["storage"]), payloads=[],
+            )
+        body.update(power_state=self.power_state, keep_awake=self.keep_awake,
+                    soc_power=self.soc_power if self._is_on() else None,
+                    drives=list(self.drives) if self._is_on() else [])
         body.update(self.state_override)
+        if self.legacy_v03 or self.legacy_v02:
+            for key in ("power_state", "keep_awake", "soc_power", "drives"):
+                body.pop(key)
+            return web.json_response(body)  # v0.3 schema; not checked here
         if self.legacy_v01:
             body.pop("payloads")
             body.pop("fan")
@@ -322,6 +390,8 @@ class FakePayload:
                             headers={"ETag": f'"{index:x}-1"'})
 
     def _launch(self, title_id: str, body: dict[str, Any]) -> web.Response:
+        if not self._is_on():
+            return self._error(409, "not_on")
         replace = body.get("replace_running", False)
         if not isinstance(replace, bool):
             return self._error(400, "bad_request")
@@ -366,4 +436,73 @@ class FakePayload:
         if want is not None and want != self.running[0]:
             return self._error(409, "title_mismatch")
         self.running = None
+        return self._json("ok", {"result": "ok"})
+
+    # --- v0.4 handlers ---------------------------------------------------
+
+    def _is_on(self) -> bool:
+        """A console that cannot report its power state counts as on, like the payload."""
+        return self.power_state in ("on", "unknown")
+
+    def _suspend(self) -> web.Response:
+        if not self._is_on():
+            return self._error(409, "not_on")
+        if not self.capabilities.get("suspend"):
+            return self._error(409, "not_available")
+        if not self.running:
+            return self._error(409, "not_running")
+        self.running = None
+        return self._json("ok", {"result": "ok"})
+
+    def _keep_awake(self, body: dict[str, Any]) -> web.Response:
+        on = body.get("on")
+        if not isinstance(on, bool):
+            return self._error(400, "bad_request")
+        if on and not self._is_on():
+            return self._error(409, "not_on")
+        if not self.capabilities.get("keep_awake"):
+            return self._error(409, "not_available")
+        self.keep_awake = on
+        return self._json("keep_awake", {"result": "ok", "keep_awake": on})
+
+    def _playtime(self, request: web.Request) -> web.Response:
+        raw = request.query.get("since")
+        if raw is None:
+            since = int(time.time()) - 8 * 86400
+        elif re.fullmatch(r"[0-9]{1,11}", raw):
+            since = int(raw)
+        else:
+            return self._error(400, "bad_request")
+        sessions = [s for s in self.playtime_sessions if s["start"] + s["duration_s"] >= since]
+        return self._json("playtime", {
+            "result": "ok", "foreground": bool(self.capabilities.get("focus")),
+            "titles": list(self.playtime_titles), "sessions": sessions,
+            "current": self.playtime_current,
+        })
+
+    def _payloads(self) -> web.Response:
+        if not self.payload_manager:
+            self._pldmgr_ok = False
+        elif self._is_on():
+            self._pldmgr_ok = True
+        if not self.payload_manager or not self._is_on():  # outside "on" it is not even asked
+            return self._json("payloads", {"result": "ok", "available": False, "payloads": []})
+        return self._json("payloads", {"result": "ok", "available": True,
+                                       "payloads": [dict(p) for p in self.payload_list]})
+
+    def _payload_action(self, body: dict[str, Any], *, start: bool) -> web.Response:
+        slot = body.get("slot")
+        if not isinstance(slot, str) or not slot:
+            return self._error(400, "bad_request")
+        if not self.payload_manager:
+            self._pldmgr_ok = False
+            return self._error(503, "payload_manager_unavailable")
+        entry = next((p for p in self.payload_list if p["slot"] == slot), None)
+        if entry is None:
+            return self._error(404, "unknown_payload")
+        if entry["protected"]:  # never started or stopped, the Payload Manager is not asked
+            return self._error(403, "protected")
+        if entry["running"] == start:
+            return self._error(409, "already_running" if start else "not_running")
+        entry["running"] = start
         return self._json("ok", {"result": "ok"})

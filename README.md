@@ -2,7 +2,7 @@
 
 Brings a jailbroken PS5 into Home Assistant: what is running (with cover), all installed games and apps in the media
 browser and as sources, start/switch/close apps, temperatures and free storage, running payloads, messages on the TV,
-app started/stopped events and, if you allow it, rest mode, power off and the fan threshold. No YAML, no MQTT broker,
+app started/stopped events, rest mode, power off and the fan threshold. No YAML, no MQTT broker,
 no PSN account, no cloud.
 
 It talks to the [ps5-hass payload](https://github.com/Phynix88/ps5-hass-payload) running on the console and to
@@ -56,7 +56,7 @@ existing entry and reports "already set up".
 
 | Entity | Notes |
 |---|---|
-| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `off` (rest mode or off; `sensor.ps5_power` tells them apart). Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when allowed. Cover of the running app as picture. Media browser, see below. |
+| `media_player.ps5` | `playing` (app running), `idle` (home screen), `on` (console on, payload not loaded), `off` (rest mode or off; `sensor.ps5_power` tells them apart). Source list = installed titles, games first; selecting a source starts it (a running app is closed first). Stop closes the running app. Turn off = rest mode, only when the console can do it. Cover of the running app as picture. Media browser, see below. |
 | `notify.ps5` | message on the TV, see below |
 | `sensor.ps5_cpu_temperature`, `sensor.ps5_soc_temperature` | °C |
 | `sensor.ps5_storage_free` | GiB free on the internal SSD |
@@ -68,9 +68,9 @@ existing entry and reports "already set up".
 | `image.ps5_cover` | cover of the running app |
 | `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind`. No event when the console goes to rest mode or off; if the app is gone afterwards, `stopped` fires when the payload is back. Use `sensor.ps5_power` for power changes. |
 | `button.ps5_close_app` | closes the app that Home Assistant shows as running |
-| `button.ps5_rest_mode` | only when rest mode is allowed on the console |
-| `button.ps5_power_off` | only when power off is allowed on the console |
-| `switch.ps5_fan_control`, `number.ps5_fan_threshold` | only when fan control is allowed on the console, see below |
+| `button.ps5_rest_mode` | only when the console can do it |
+| `button.ps5_power_off` | only when the console can do it |
+| `switch.ps5_fan_control`, `number.ps5_fan_threshold` | only when the console can do it, see below |
 | `sensor.ps5_fan_threshold_current` | threshold the console uses right now (diagnostic) |
 | `button.ps5_start_<app>` | one per favourite (options) |
 

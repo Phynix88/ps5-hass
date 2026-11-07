@@ -188,18 +188,15 @@ async def test_reauth_keeps_client_id(hass: HomeAssistant, fake: FakePayload) ->
     assert entry.data[CONF_TOKEN] == fake.tokens[client_id]
 
 
-async def test_options_sources_and_favorites(hass: HomeAssistant, fake: FakePayload) -> None:
+async def test_options_single_step(hass: HomeAssistant, fake: FakePayload) -> None:
     entry = entry_for(fake)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.MENU
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"next_step_id": "sources"}
-    )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "sources"
+    assert result["step_id"] == "init"
+    assert set(result["data_schema"].schema) == {OPT_SOURCES, OPT_FAVORITES}
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {OPT_SOURCES: "games", OPT_FAVORITES: ["PPSA96708", "PPSA99169"]}
     )

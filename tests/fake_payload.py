@@ -70,8 +70,8 @@ class FakePayload:
         self.expect_schema_errors = False
         self.down = False  # abort every connection, like a payload that is not loaded
         # v0.2
-        self.power_off = False      # permission in config.json
-        self.fan_control = False    # permission in config.json
+        self.power_off = False      # the console can power off (v0.3: and it is allowed)
+        self.fan_control = False    # the console can set the fan (v0.3: and it is allowed)
         self.power_off_calls = 0
         self.payloads = ["ftpsrv.elf", "kstuff.elf", "shadowmountplus.elf", "websrv.elf"]
         self.fan = {"target_c": None, "current_c": 91, "stock_c": 91}
@@ -79,10 +79,9 @@ class FakePayload:
         self.legacy_v01 = False  # answer /state like a v0.1 payload (no payloads/fan)
         # v0.3
         self.legacy_v02 = False  # /info without permissions, no /grant/* (payload v0.1/v0.2)
-        self.available = {"power_actions": True, "power_off": True, "fan_control": True}
-        self.grant_code = "654321"
-        self.grant_pending: list[str] = []
-        self._grant_attempts = 0
+        # v0.4 has no permissions: what the console can do is allowed. A v0.3 payload
+        # still answers 403 *_disabled for what is not allowed (the flags above).
+        self.legacy_v03 = False
         self._pairing = False
         self._attempts = 0
         self._runner: web.AppRunner | None = None
@@ -129,10 +128,17 @@ class FakePayload:
     PERMS = ("power_actions", "power_off", "fan_control")
 
     def permissions(self) -> dict[str, dict[str, bool]]:
+        """Every name allowed = available (payload v0.4)."""
         return {
-            name: {"allowed": bool(getattr(self, name)), "available": self.available[name]}
+            name: {"allowed": bool(getattr(self, name)), "available": bool(getattr(self, name))}
             for name in self.PERMS
         }
+
+    def _disabled(self, code: str) -> web.Response:
+        """A v0.3 payload says 403 for what is not allowed, v0.4 that it cannot."""
+        if self.legacy_v03:
+            return self._error(403, code)
+        return self._error(409, "not_available")
 
     def app(self, title_id: str) -> dict[str, Any] | None:
         return next((a for a in self.apps if a["title_id"] == title_id), None)
@@ -221,16 +227,16 @@ class FakePayload:
             return self._notify(body)
         if (request.method, path) == ("POST", "/power/off"):
             if not self.power_off:
-                return self._error(403, "power_off_disabled")
+                return self._disabled("power_off_disabled")
             self.power_off_calls += 1
             return self._json("ok", {"result": "ok"})
         if (request.method, path) == ("POST", "/fan"):
             return self._fan(body)
         if path.startswith("/grant/") and not self.legacy_v02 and request.method == "POST":
-            return self._grant(path, body)
+            return self._grant(path)
         if (request.method, path) == ("POST", "/power/standby"):
             if not self.power_actions:
-                return self._error(403, "power_actions_disabled")
+                return self._disabled("power_actions_disabled")
             self.standby_calls += 1
             return self._json("ok", {"result": "ok"})
         parts = path.strip("/").split("/")
@@ -263,52 +269,13 @@ class FakePayload:
         self.tokens[body["client_id"]] = token
         return self._json("pair_finish", {"result": "ok", "token": token})
 
-    def _names(self, body: dict[str, Any]) -> list[str] | None:
-        names = body.get("permissions")
-        if (
-            not isinstance(names, list) or not names
-            or any(n not in self.PERMS for n in names) or len(set(names)) != len(names)
-        ):
-            return None
-        return names
-
-    def _grant(self, path: str, body: dict[str, Any]) -> web.Response:
+    def _grant(self, path: str) -> web.Response:
+        """Payload v0.4: nothing to grant, everything is allowed after pairing."""
         if path == "/grant/start":
-            names = self._names(body)
-            if names is None:
-                return self._error(400, "bad_request")
-            if any(not self.available[n] for n in names):
-                return self._error(409, "not_available")
-            missing = [n for n in names if not getattr(self, n)]
-            if not missing:
-                return self._error(409, "already_allowed")
-            self.grant_pending = missing
-            self._grant_attempts = 0
-            self.notifications.append(f"grant {', '.join(missing)}: {self.grant_code}")
-            return self._json("grant_start", {"result": "ok", "expires_in": 120})
+            return self._error(409, "already_allowed")
         if path == "/grant/finish":
-            if not isinstance(body.get("code"), str):
-                return self._error(400, "bad_request")
-            if not self.grant_pending:
-                return self._error(409, "no_code")
-            if self._grant_attempts >= 5:
-                return self._error(409, "code_exhausted")
-            if body["code"] != self.grant_code:
-                self._grant_attempts += 1
-                return self._error(401, "wrong_code", attempts_left=5 - self._grant_attempts)
-            for name in self.grant_pending:
-                setattr(self, name, True)
-            self.grant_pending = []
-            return self._json("grant_finish", {"result": "ok", "permissions": self.permissions()})
+            return self._error(409, "no_code")
         if path == "/grant/revoke":
-            names = self._names(body)
-            if names is None:
-                return self._error(400, "bad_request")
-            for name in names:
-                setattr(self, name, False)
-            if "fan_control" in names:
-                self.fan["target_c"] = None
-                self.fan["current_c"] = self.fan["stock_c"]
             return self._json("grant_revoke", {"result": "ok", "permissions": self.permissions()})
         return self._error(404, "not_found")
 
@@ -381,7 +348,7 @@ class FakePayload:
 
     def _fan(self, body: dict[str, Any]) -> web.Response:
         if not self.fan_control:
-            return self._error(403, "fan_control_disabled")
+            return self._disabled("fan_control_disabled")
         value = body.get("threshold_c")
         if not isinstance(value, int) or (value != 0 and not 45 <= value <= 85):
             return self._error(400, "bad_request")

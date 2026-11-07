@@ -160,24 +160,3 @@ async def test_icon_rejects_bad_title_id(fake: FakePayload, session) -> None:
     assert err.value.code == "bad_title_id"
     with pytest.raises(ApiError):
         await c.launch("ppsa00001")
-
-
-async def test_grant_roundtrip(fake: FakePayload, session) -> None:
-    c = client(fake, session, fake.add_token(CLIENT))
-    assert await c.grant_start(["power_off"]) == 120
-    perms = await c.grant_finish(fake.grant_code)
-    assert perms["power_off"] == {"allowed": True, "available": True}
-    assert fake.power_off is True
-    perms = await c.grant_revoke(["power_off"])
-    assert perms["power_off"]["allowed"] is False
-    assert fake.power_off is False
-
-
-async def test_grant_wrong_code_attempts_left(fake: FakePayload, session) -> None:
-    c = client(fake, session, fake.add_token(CLIENT))
-    await c.grant_start(["fan_control"])
-    with pytest.raises(ApiError) as err:
-        await c.grant_finish("000000")
-    assert err.value.code == "wrong_code"
-    assert err.value.attempts_left == 4
-    assert fake.fan_control is False

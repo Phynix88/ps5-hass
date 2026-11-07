@@ -21,7 +21,7 @@ from .ddp import ddp_status
 _LOGGER = logging.getLogger(__package__)
 
 # /info fields whose change needs a reload (entities depend on them)
-RELOAD_FIELDS = ("power_actions", "capabilities", "permissions")
+RELOAD_FIELDS = ("power_actions", "capabilities")
 
 
 @dataclass

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
+
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from .conftest import entry_for
 from .helpers import tick
+
+COMP = pathlib.Path(__file__).parent.parent / "custom_components" / "ps5_hass"
 
 
 async def _setup(hass, fake):
@@ -99,3 +104,30 @@ async def test_fan_switch_on_capped_by_stock(hass, fake) -> None:
     await hass.services.async_call(
         "switch", "turn_on", {"entity_id": "switch.ps5_fan_control"}, blocking=True)
     assert fake.fan["target_c"] == 70  # default 80 would be above this board's 70
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "domain", "service", "data", "key"),
+    [
+        ("button.ps5_rest_mode", "button", "press", {}, "power_actions_disabled"),
+        ("button.ps5_power_off", "button", "press", {}, "power_off_disabled"),
+        ("number.ps5_fan_threshold", "number", "set_value", {"value": 72}, "fan_control_disabled"),
+    ],
+)
+async def test_v03_payload_403_message(hass, fake, entity_id, domain, service, data, key) -> None:
+    """A v0.3 payload that does not allow the action: tell the user to update it."""
+    fake.power_actions = fake.power_off = fake.fan_control = True
+    await _setup(hass, fake)
+    fake.power_actions = fake.power_off = fake.fan_control = False
+    fake.legacy_v03 = True
+    with pytest.raises(HomeAssistantError) as err:
+        await hass.services.async_call(
+            domain, service, {"entity_id": entity_id, **data}, blocking=True)
+    assert err.value.translation_key == key
+    for path, text in (
+        ("strings.json", "Update the ps5-hass payload to v0.4; permissions are no longer needed."),
+        ("translations/en.json", "Update the ps5-hass payload to v0.4; permissions are no longer needed."),
+        ("translations/de.json", "Aktualisiere den ps5-hass-Payload auf v0.4; Freigaben sind nicht mehr nötig."),
+    ):
+        strings = json.loads((COMP / path).read_text())
+        assert strings["exceptions"][key]["message"] == text, (path, key)

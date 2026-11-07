@@ -51,13 +51,6 @@
     "step": {
       "init": {
         "title": "PS5-Optionen",
-        "menu_options": {
-          "sources": "Quellen und Favoriten",
-          "permissions": "Freigaben der Konsole"
-        }
-      },
-      "sources": {
-        "title": "PS5-Optionen",
         "data": {
           "sources": "Quellenliste",
           "favorites": "Lieblings-Apps"
@@ -66,45 +59,7 @@
           "sources": "Welche Titel der Mediaplayer als Quelle anbietet.",
           "favorites": "Jeder Favorit bekommt einen eigenen Start-Knopf."
         }
-      },
-      "permissions": {
-        "title": "Freigaben der Konsole",
-        "description": "Was Home Assistant an der Konsole darf. Ein gesetztes Häkchen zeigt einen Code am Fernseher, den du im nächsten Schritt eingibst. Ein entferntes Häkchen entzieht die Freigabe sofort. Was die Konsole nicht kann, wird nicht angezeigt.",
-        "data": {
-          "power_actions": "Ruhemodus",
-          "power_off": "Ausschalten",
-          "fan_control": "Lüftersteuerung"
-        },
-        "data_description": {
-          "power_actions": "Knopf Ruhemodus und Mediaplayer aus.",
-          "power_off": "Knopf Ausschalten. Einschalten geht danach nur mit der Einschalttaste oder der PS-Taste am Controller.",
-          "fan_control": "Schalter und Regler für die Lüfter-Schwelle."
-        }
-      },
-      "grant_code": {
-        "title": "Code vom Fernseher eingeben",
-        "description": "Die PS5 zeigt am Fernseher \"ps5-hass: … asks to allow …. Code: …\". Gib die 6 Ziffern innerhalb von zwei Minuten ein.",
-        "data": {
-          "code": "Code",
-          "new_code": "Neuen Code anzeigen"
-        }
       }
-    },
-    "error": {
-      "cannot_connect": "Payload nicht erreichbar. Ist die Konsole an und der Payload geladen?",
-      "wrong_code": "Falscher Code. Noch {attempts_left} Versuche.",
-      "code_expired": "Der Code ist abgelaufen oder aufgebraucht. Setze das Häkchen „Neuen Code anzeigen“.",
-      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor du einen neuen Code anforderst.",
-      "not_available": "Das kann die Konsole nicht.",
-      "invalid_code": "Gib die 6 Ziffern vom Fernseher ein.",
-      "save_failed": "Die Konsole konnte die Freigabe nicht speichern. Fordere einen neuen Code an und versuche es noch einmal."
-    },
-    "abort": {
-      "payload_too_old": "Der Payload auf der Konsole ist zu alt. Aktualisiere ihn auf v0.3.0 oder neuer, oder setze die Freigaben in config.json auf der Konsole.",
-      "locked": "Freigeben ist nach zu vielen falschen Codes für {minutes} Minuten gesperrt.",
-      "cannot_connect": "Payload nicht erreichbar. Ist die Konsole an und der Payload geladen?",
-      "cannot_show_code": "Die Konsole kann keinen Code anzeigen (Benachrichtigung oder Zufall nicht verfügbar).",
-      "reauth_required": "Die Konsole kennt diese Kopplung nicht mehr. Koppele neu: Home Assistant zeigt einen Hinweis."
     }
   },
   "selector": {
@@ -132,7 +87,7 @@
       "message": "Auf der PS5 ist kein Benutzer angemeldet."
     },
     "power_actions_disabled": {
-      "message": "Ruhemodus ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder power_actions in config.json auf der Konsole auf true setzen."
+      "message": "Aktualisiere den ps5-hass-Payload auf v0.4; Freigaben sind nicht mehr nötig."
     },
     "other_app_running": {
       "message": "Auf der PS5 läuft eine andere App."
@@ -153,10 +108,10 @@
       "message": "Zu viele Anfragen an die PS5. In {retry_after} s erneut versuchen."
     },
     "power_off_disabled": {
-      "message": "Ausschalten ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder power_off in config.json auf der Konsole auf true setzen."
+      "message": "Aktualisiere den ps5-hass-Payload auf v0.4; Freigaben sind nicht mehr nötig."
     },
     "fan_control_disabled": {
-      "message": "Lüftersteuerung ist nicht erlaubt: in den PS5-Optionen (Freigaben der Konsole) freigeben oder fan_control in config.json auf der Konsole auf true setzen."
+      "message": "Aktualisiere den ps5-hass-Payload auf v0.4; Freigaben sind nicht mehr nötig."
     },
     "fan_above_stock": {
       "message": "Die PS5 erlaubt keine Schwelle über ihrem Werkswert."

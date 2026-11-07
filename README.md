@@ -1,9 +1,10 @@
 # PS5 (ps5-hass) for Home Assistant
 
 Brings a jailbroken PS5 into Home Assistant: what is running (with cover), all installed games and apps in the media
-browser and as sources, start/switch/close apps, temperatures and free storage, running payloads, messages on the TV,
-app started/stopped events, rest mode, power off and the fan threshold. No YAML, no MQTT broker,
-no PSN account, no cloud.
+browser and as sources, start/switch/close/minimise apps, play time per day, week and game (with a ready-made
+play time limit), temperatures, chip power and free storage (also external drives), running payloads (start and stop
+them), messages on the TV, app started/stopped events, rest mode, keeping the console awake, power off and the fan
+threshold. No YAML, no MQTT broker, no PSN account, no cloud.
 
 It talks to the [ps5-hass payload](https://github.com/Phynix88/ps5-hass-payload) running on the console and to
 Sony's own status query (to tell "rest mode" from "off").
@@ -13,9 +14,11 @@ Sony's own status query (to tell "rest mode" from "off").
 ## Requirements
 
 - A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
-  the Payload Manager and put into the autoload). Payload **v0.4 or later**. With an older payload,
-  rest mode, power off and the fan stay locked until they are allowed in `config.json` on the console (v0.1.0 and
-  v0.2.0 also lack messages, payloads, power off and the fan).
+  the Payload Manager and put into the autoload). Payload **v0.4 or later** for everything described here: play
+  time, payload switches, keeping awake, minimising, chip power, external drives, and rest mode, power off and the
+  fan without any setting. A **v0.3** payload still works, without these new features (their entities do not appear),
+  and rest mode, power off and the fan only if they were allowed on the console before. v0.1.0 and v0.2.0 also lack
+  messages, payloads, power off and the fan.
 - Home Assistant 2026.10 or later, in the same local network.
 - Home Assistant must reach the console on **TCP 8181** (payload) and **UDP 9302** (Sony's status query; without it
   rest mode shows as `off`). Automatic discovery needs mDNS: Home Assistant in Docker needs host networking, and the
@@ -60,22 +63,34 @@ existing entry and reports "already set up".
 | `notify.ps5` | message on the TV, see below |
 | `sensor.ps5_cpu_temperature`, `sensor.ps5_soc_temperature` | °C |
 | `sensor.ps5_storage_free` | GiB free on the internal SSD |
+| `sensor.ps5_storage_free_m2`, `sensor.ps5_storage_free_extended`, `sensor.ps5_storage_free_usb0` … | GiB free on each external or extended drive, attribute `total_gib`; one sensor per drive, created when the drive first shows up (unavailable while it is missing). See *External drives* |
+| `sensor.ps5_soc_power` | Watts drawn by the console's chip, see *Power draw* |
+| `sensor.ps5_playtime_today`, `sensor.ps5_playtime_week` | game time today and this week, in minutes. See *Play time* |
+| `sensor.ps5_playtime_<title id>` | total play time of one game in minutes (for example `sensor.ps5_playtime_ppsa01234`), created when the game is first played. See *Play time* |
 | `sensor.ps5_running_app` | name, attributes `title_id`, `kind` |
-| `sensor.ps5_power` | `on`, `standby`, `off` |
+| `sensor.ps5_power` | `on`, `standby` (rest mode), `off`. With payload v0.4 rest mode shows at once |
 | `sensor.ps5_payloads` | number of running payloads, attribute `names` |
 | `binary_sensor.ps5_jailbreak_kstuff`, `binary_sensor.ps5_shadowmount`, `binary_sensor.ps5_ftp_server`, `binary_sensor.ps5_websrv` | whether that payload runs (`kstuff.elf`, `shadowmountplus.elf`, `ftpsrv.elf`, `websrv.elf`; diagnostic) |
-| `update.ps5_payload` | a newer ps5-hass payload is on GitHub (checked every 6 hours); install it in the Payload Manager on the console, not from Home Assistant |
+| `update.ps5_payload` | a newer ps5-hass payload is on GitHub (checked every 6 hours); install it in the Payload Manager on the console, not from Home Assistant. See *Payload updates* |
+| `switch.ps5_payload_<name>` | starts and stops a payload through the Payload Manager, one per payload it lists, for example `switch.ps5_payload_ftpsrv`. See *Payload switches* |
 | `sensor.ps5_uptime`, `sensor.ps5_fan_raw` | diagnostic, disabled by default (the fan value is the raw console value) |
 | `image.ps5_cover` | cover of the running app |
 | `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind`. No event when the console goes to rest mode or off; if the app is gone afterwards, `stopped` fires when the payload is back. Use `sensor.ps5_power` for power changes. |
 | `button.ps5_close_app` | closes the app that Home Assistant shows as running |
+| `button.ps5_minimize` | minimises the running game, see *Minimise* |
+| `switch.ps5_keep_awake` | keeps the console from powering down by itself, see *Keep awake* |
 | `button.ps5_rest_mode` | only when the console can do it |
 | `button.ps5_power_off` | only when the console can do it |
 | `switch.ps5_fan_control`, `number.ps5_fan_threshold` | only when the console can do it, see below |
 | `sensor.ps5_fan_threshold_current` | threshold the console uses right now (diagnostic) |
 | `button.ps5_start_<app>` | one per favourite (options) |
 
-Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temperatur` in German).
+Entity IDs follow your Home Assistant language (for example `sensor.ps5_cpu_temperatur` in German), except for
+`sensor.ps5_playtime_today`, `sensor.ps5_playtime_week`, `sensor.ps5_playtime_<title id>`,
+`sensor.ps5_storage_free_<drive>` and `switch.ps5_payload_<name>`, which are the same in every language. The IDs of
+the other new entities (`button.ps5_minimize`, `switch.ps5_keep_awake`, `sensor.ps5_soc_power`) are the English ones
+in this README; in German they are `button.ps5_minimieren`, `switch.ps5_wach_halten` and `sensor.ps5_soc_leistung`.
+Automations that should work in any language pick entities from the lists in the editor (the blueprint below does).
 
 ### Options
 
@@ -83,6 +98,92 @@ Settings → Devices & services → PS5 → **Configure** opens one form:
 
 - **Sources and favourites:** source list (all apps and games, or games only) and favourite apps (each gets its own
   start button).
+
+## Play time
+
+The payload counts how long each game is **in the foreground** and keeps the numbers on the console, so nothing is
+lost while Home Assistant is down.
+
+- `sensor.ps5_playtime_today` and `sensor.ps5_playtime_week`: minutes of game time, by Home Assistant's time zone (the
+  day ends at midnight, the week on Monday; the value can lag up to a minute behind a change).
+- `sensor.ps5_playtime_<title id>`: total play time of one game, created when the game is first played, named after
+  the game. Home Assistant's long-term statistics turn it into play time per day or week for that game (statistics
+  graph card).
+- **Foreground only:** the home screen and settings do not count. The control centre keeps the game in front, so it
+  **does** count. A minimised game does not count.
+- **Games only:** apps (streaming, media, the store) do not count towards the day and week sensors and get no
+  sensor of their own.
+- The sensors stay available while the console is off; the total is still true.
+- Attribute `console_total_min` of a game's sensor is the **console total**: the console's own count for that game
+  (all users, also from before ps5-hass was installed), when the console knows it. It is Sony's number and can
+  differ from the sensor, which counts only from the first start of the payload.
+
+### Play time limit
+
+[![Open your Home Assistant instance and show the blueprint import dialog with this blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FPhynix88%2Fps5-hass%2Fmain%2Fblueprints%2Fautomation%2Fps5_hass%2Fplaytime_limit.yaml)
+
+The blueprint **PS5 play time limit** warns on the TV shortly before the daily limit, then closes the game, minimises
+it or puts the console into rest mode. Starting a game again after the limit runs the action again, with the notice
+"Play time for today is over". Press the button above, then Settings → Automations → **Create automation** from the
+blueprint and fill in:
+
+| Input | Meaning |
+|---|---|
+| Play time sensor | `sensor.ps5_playtime_today` |
+| Daily limit, warn this long before | minutes (default 120 and 15; 0 turns the warning off) |
+| TV notifications | `notify.ps5` |
+| At the limit | close the game, minimise it or rest mode |
+| Close app / Minimise / Rest mode button | the button for the action you chose |
+| Warning text, text when play time is over | optional; English by default |
+
+The warning comes once per day and the action at the limit once; no helpers are needed (the comments in the
+blueprint explain how). The action follows within about a minute of the sensor reaching the limit, and within about a
+minute of a new game starting. Minimising keeps the game open and paused, so the player can come back to it
+tomorrow; closing it loses unsaved progress.
+
+## Payload switches
+
+`switch.ps5_payload_<name>` starts and stops the payloads that the console's **Payload Manager** lists, for example
+`switch.ps5_payload_ftpsrv`. The state is on while the payload runs; the attribute `version` is the Payload
+Manager's version. The switches are unavailable while the Payload Manager does not answer (it must be running on the
+console, and the console on).
+
+- **Protected payloads never get a switch:** kstuff, the ELF loader, the Payload Manager and ps5-hass itself can be
+  neither started nor stopped from Home Assistant.
+- Stopping a payload ends its process. A payload that was updated in the Payload Manager keeps its switch.
+- The binary sensors above and `sensor.ps5_payloads` show what runs; the switches change it.
+
+## Keep awake
+
+`switch.ps5_keep_awake`: while on, the payload keeps the console from powering down by itself (the "turn off after"
+timer of the power saving settings). It does **not** stop rest mode that you start with a button or the controller.
+The switch is off again after a payload restart or a console restart, and Home Assistant cannot switch it on while
+the console is in rest mode.
+
+## Minimise
+
+`button.ps5_minimize` minimises the running game: it stays open and paused, and the console shows its home screen.
+Open it again from the home screen. While a game is minimised the console reports no running app, so
+`media_player.ps5` is `idle` and the play time stops. Only for games; nothing running gives an error.
+
+## Power draw
+
+`sensor.ps5_soc_power` shows the Watts drawn by the console's chip, read from the console's own sensor. **Chip only,
+not the wall:** the drives, fan, power supply and the rest of the console are not included, so the socket draws
+more. The attribute `note` says so.
+
+## External drives
+
+`sensor.ps5_storage_free_<drive>` (`m2`, `extended`, `usb0` … `usb7`) shows the free space of each drive the console
+reports, in GiB; the attribute `total_gib` is its size. A sensor is created when its drive first shows up and stays
+(unavailable) while the drive is missing.
+
+## Payload updates
+
+`update.ps5_payload` compares the payload on the console (from the payload itself) with the latest release on
+GitHub, checked every 6 hours; it shows "unknown" when GitHub cannot be reached. Home Assistant cannot install it:
+replace `ps5-hass.elf` in the Payload Manager on the console. The installed version is also shown while the
+console is off.
 
 ## Media browser
 
@@ -118,8 +219,8 @@ data:
 
 ## Rest mode, power off and the fan
 
-Pairing is the only step: after it, rest mode, power off and the fan threshold work, and the entities appear for
-everything the console can do. Power off needs the power button or the controller's PS button to switch on again.
+Pairing is the only step: after it, rest mode, power off and the fan threshold work (payload v0.4). Power off needs
+the power button or the controller's PS button to switch on again.
 
 | Entity | Does |
 |---|---|
@@ -199,8 +300,11 @@ To send your own text from a dashboard, create a text helper (`input_text`) and 
 
 ## How it works
 
-- Every 10 s Home Assistant asks the payload for the state. When it does not answer, the last state is kept for
-  30 s (going to rest mode), then Sony's status query decides between `on`, `standby` and `off`.
+- Every 10 s Home Assistant asks the payload for the state; with payload v0.4 the payload reports rest mode itself,
+  so `sensor.ps5_power` shows `standby` at once. When it does not answer, the last state is kept for 30 s, then
+  Sony's status query decides between `on`, `standby` and `off`.
+- Play time is asked for once a minute, and at once when the running app changes. Payload switches ask the Payload
+  Manager every 30 s.
 - The app list is fetched every 10 minutes, and at once when the console reports a change.
 - Covers go through Home Assistant's image proxy; only PNG/JPEG up to 1 MB are passed on.
 
@@ -231,12 +335,16 @@ Pairing needs a code from the TV. See the payload README, *Security and limits*.
 - **Pairing locked:** after 10 wrong codes in a row the console locks pairing for 15 minutes (growing); wait, or
   restart the payload.
 - **Power off / fan entities missing:** the console cannot do it, or the payload is older than v0.4 (update it).
+- **Play time, keep awake, minimise, chip power, payload switches missing:** they need payload v0.4 (see
+  `update.ps5_payload`); the Payload Manager must be running for the switches.
+- **Play time stays at 0:** only a game in the foreground counts, not apps and not the home screen.
 - **Report a problem:** download the diagnostics (Settings → Devices → PS5 → ⋮ → Download diagnostics; the token is
   removed) and add the payload's `/api/v1/info`.
 
 ## Removal
 
-1. Turn `switch.ps5_fan_control` off if you used it (the console gets its factory threshold back).
+1. Turn `switch.ps5_fan_control` and `switch.ps5_keep_awake` off if you used them (the console gets its factory
+   threshold and its own power-down timer back). Delete the play time limit automation, if you made one.
 2. While the console is on and the payload runs: Settings → Devices & services → PS5 → ⋮ → **Delete**. This frees
    the pairing slot on the console.
 3. Marketplace → PS5 (ps5-hass) → ⋮ → **Uninstall** (HACS: ⋮ → **Remove**; manual install: delete

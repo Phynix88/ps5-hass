@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.4.0
+
+Needs the ps5-hass payload v0.4.0 for the new features; a v0.3 payload keeps working without them (the new entities
+do not appear).
+
+- Play time: `sensor.ps5_playtime_today` and `sensor.ps5_playtime_week` (minutes, games in the foreground only) and
+  one sensor per game with its total (attribute `console_total_min`: the console's own count).
+- Blueprint **PS5 play time limit**: warning on the TV before the daily limit, then close, minimise or rest mode;
+  again when a game is started after the limit.
+- Payload switches: `switch.ps5_payload_<name>` starts and stops payloads through the Payload Manager (protected
+  ones, such as kstuff, never get one).
+- `update.ps5_payload`: a newer ps5-hass payload on GitHub (checked every 6 hours; installed in the Payload Manager).
+- `switch.ps5_keep_awake`, `button.ps5_minimize`, `sensor.ps5_soc_power` (chip only, not the wall) and
+  `sensor.ps5_storage_free_<drive>` for external and extended drives.
+- `sensor.ps5_power` shows rest mode (`standby`) at once.
+- Removed: the **Console permissions** dialog. Rest mode, power off and the fan need no permission with payload
+  v0.4; with an older payload, entities that were allowed before keep working. The options are the one form for
+  sources and favourites again.
+- Messages for refused rest mode, power off and fan control now say to update the payload.
+
 ## v0.3.2
 
 - README: installation, updates and removal through the Marketplace of Home Assistant 2026.11; screenshots; network

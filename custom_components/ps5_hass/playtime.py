@@ -88,6 +88,8 @@ class PlaytimeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     `data` is the last /playtime answer plus `today_s` and `week_s`; it is empty until the
     first answer. While the payload is away (the console is off or in rest mode) the last
     answer stays, and only the totals are worked out again, so "today" still ends at midnight.
+    No value goes down: per-game totals keep their highest value, today and this week theirs
+    until the day or week changes.
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, client: Ps5HassClient) -> None:
@@ -101,6 +103,11 @@ class PlaytimeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self.state: StateCoordinator | None = None
         self._seen: tuple[bool, str | None] | None = None
+        # highest values shown: the sensors are total_increasing, and the payload can lose up to a
+        # minute (checkpoint, update, power cut). Today and week start again on a new day / week.
+        self._titles: dict[str, dict[str, Any]] = {}
+        self._day: tuple[date, int] | None = None
+        self._week: tuple[date, int] | None = None
 
     def follow(self, state: StateCoordinator) -> Callable[[], None]:
         """Refresh when the payload comes back or the running app changes; returns the unsubscribe."""
@@ -139,7 +146,26 @@ class PlaytimeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 pass  # keep what we have
             else:
                 raw = {k: answer[k] for k in ("foreground", "titles", "sessions", "current")}
+                raw["titles"] = self._keep_titles(raw["titles"])
         if not raw:
             return {}
         today_s, week_s = totals(raw["sessions"], raw["current"], now, tz)
-        return {**raw, "today_s": today_s, "week_s": week_s}
+        today = now.astimezone(tz).date()
+        monday = today - timedelta(days=today.weekday())
+        self._day = (today, _peak(self._day, today, today_s))
+        self._week = (monday, _peak(self._week, monday, week_s))
+        return {**raw, "today_s": self._day[1], "week_s": self._week[1]}
+
+    def _keep_titles(self, titles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Totals never go down, and a title missing from an answer keeps its last value."""
+        for title in titles:
+            known = self._titles.get(title["title_id"])
+            if known is not None and known["total_s"] > title["total_s"]:
+                title = {**title, "total_s": known["total_s"]}
+            self._titles[title["title_id"]] = title
+        return list(self._titles.values())
+
+
+def _peak(last: tuple[date, int] | None, key: date, value: int) -> int:
+    """The higher of value and the last one while the period (day or week) is the same."""
+    return max(value, last[1]) if last is not None and last[0] == key else value

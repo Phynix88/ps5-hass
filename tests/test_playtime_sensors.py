@@ -125,6 +125,49 @@ async def test_values_held_while_the_payload_is_away(hass: HomeAssistant, fake, 
         assert hass.states.get("sensor.ps5_playtime_ppsa00001").state == "90.0"
 
 
+async def test_values_never_drop_within_a_day(hass: HomeAssistant, fake, freezer) -> None:
+    """The payload may lose up to a minute (checkpoint, update, power cut): total_increasing must not drop."""
+    await _setup(hass, fake, freezer)
+    fake.playtime_current["duration_s"] = 540  # one minute lost
+    fake.playtime_titles[0]["total_s"] = 5340
+    await tick(hass, freezer, 61)
+    assert hass.states.get(TODAY).state == "30.0"
+    assert hass.states.get(WEEK).state == "90.0"
+    assert hass.states.get("sensor.ps5_playtime_ppsa00001").state == "90.0"
+    # and it grows again from the higher of the two
+    fake.playtime_current["duration_s"] = 900
+    fake.playtime_titles[0]["total_s"] = 5460
+    await tick(hass, freezer, 61)
+    assert hass.states.get(TODAY).state == "35.0"
+    assert hass.states.get(WEEK).state == "95.0"
+    assert hass.states.get("sensor.ps5_playtime_ppsa00001").state == "91.0"
+
+
+async def test_game_total_kept_when_the_title_is_gone(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake, freezer)
+    fake.playtime_titles = [t for t in fake.playtime_titles if t["title_id"] != "PPSA00001"]
+    await tick(hass, freezer, 61)
+    assert hass.states.get("sensor.ps5_playtime_ppsa00001").state == "90.0"
+
+
+async def test_day_change_resets_today(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake, freezer)
+    fake.playtime_current = None
+    freezer.move_to(datetime(2026, 11, 5, 0, 5, tzinfo=BERLIN))  # Thursday
+    await tick(hass, freezer, 61)
+    assert hass.states.get(TODAY).state == "0.0"
+    assert hass.states.get(WEEK).state == "90.0"  # the week keeps its peak
+
+
+async def test_week_change_resets_week(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake, freezer)
+    fake.playtime_current = None
+    freezer.move_to(datetime(2026, 11, 9, 0, 5, tzinfo=BERLIN))  # Monday
+    await tick(hass, freezer, 61)
+    assert hass.states.get(TODAY).state == "0.0"
+    assert hass.states.get(WEEK).state == "0.0"
+
+
 async def test_unavailable_until_the_first_answer(hass: HomeAssistant, fake, freezer) -> None:
     with patch("custom_components.ps5_hass.api.Ps5HassClient.playtime",
                AsyncMock(side_effect=CannotConnect("away"))):

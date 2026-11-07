@@ -115,6 +115,12 @@
     },
     "fan_above_stock": {
       "message": "The PS5 does not allow a threshold above its own factory value."
+    },
+    "not_on": {
+      "message": "The PS5 is not on."
+    },
+    "not_running": {
+      "message": "No game is running on the PS5."
     }
   },
   "entity": {
@@ -158,6 +164,26 @@
       },
       "fan_threshold_current": {
         "name": "Fan threshold (current)"
+      },
+      "soc_power": {
+        "name": "SoC power",
+        "state_attributes": {
+          "note": {
+            "name": "Note"
+          }
+        }
+      },
+      "drive_m2": {
+        "name": "M.2 storage free"
+      },
+      "drive_extended": {
+        "name": "Extended storage free"
+      },
+      "drive_usb": {
+        "name": "USB {n} storage free"
+      },
+      "drive_other": {
+        "name": "{name} storage free"
       }
     },
     "image": {
@@ -190,6 +216,9 @@
       },
       "power_off": {
         "name": "Power off"
+      },
+      "minimize": {
+        "name": "Minimize"
       }
     },
     "binary_sensor": {
@@ -214,6 +243,9 @@
     "switch": {
       "fan_control": {
         "name": "Fan control"
+      },
+      "keep_awake": {
+        "name": "Keep awake"
       }
     },
     "update": {

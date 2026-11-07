@@ -61,3 +61,21 @@ async def test_sensors_unavailable_when_payload_down(hass, fake, freezer) -> Non
             hass, freezer, lambda: hass.states.get("sensor.ps5_cpu_temperature").state == "unavailable"
         )
     assert hass.states.get("sensor.ps5_storage_free").state == "unavailable"
+
+
+async def test_power_state_rest_shows_standby_immediately(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake)
+    assert hass.states.get("sensor.ps5_power").state == "on"
+    for power_state in ("going_to_rest", "rest"):
+        fake.power_state = "on"
+        await tick(hass, freezer, 11)
+        fake.power_state = power_state
+        await tick(hass, freezer, 11)  # one poll, no 30 s hold, the payload still answers
+        assert hass.states.get("sensor.ps5_power").state == "standby", power_state
+        assert hass.states.get("media_player.ps5").state == "off", power_state
+    fake.power_state = "unknown"
+    await tick(hass, freezer, 11)
+    assert hass.states.get("sensor.ps5_power").state == "on"
+    fake.power_state = "on"
+    await tick(hass, freezer, 11)
+    assert hass.states.get("sensor.ps5_power").state == "on"

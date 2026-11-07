@@ -115,6 +115,12 @@
     },
     "fan_above_stock": {
       "message": "Die PS5 erlaubt keine Schwelle über ihrem Werkswert."
+    },
+    "not_on": {
+      "message": "Die PS5 ist nicht eingeschaltet."
+    },
+    "not_running": {
+      "message": "Auf der PS5 läuft kein Spiel."
     }
   },
   "entity": {
@@ -158,6 +164,26 @@
       },
       "fan_threshold_current": {
         "name": "Lüfter-Schwelle aktuell"
+      },
+      "soc_power": {
+        "name": "SoC-Leistung",
+        "state_attributes": {
+          "note": {
+            "name": "Hinweis"
+          }
+        }
+      },
+      "drive_m2": {
+        "name": "M.2-Speicher frei"
+      },
+      "drive_extended": {
+        "name": "Erweiterter Speicher frei"
+      },
+      "drive_usb": {
+        "name": "USB-{n}-Speicher frei"
+      },
+      "drive_other": {
+        "name": "Speicher {name} frei"
       }
     },
     "image": {
@@ -190,6 +216,9 @@
       },
       "power_off": {
         "name": "Ausschalten"
+      },
+      "minimize": {
+        "name": "Minimieren"
       }
     },
     "binary_sensor": {
@@ -214,6 +243,9 @@
     "switch": {
       "fan_control": {
         "name": "Lüftersteuerung"
+      },
+      "keep_awake": {
+        "name": "Wach halten"
       }
     },
     "update": {

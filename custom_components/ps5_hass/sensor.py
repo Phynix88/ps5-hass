@@ -1,4 +1,4 @@
-"""Sensors: temperatures, free storage, uptime, fan, running app."""
+"""Sensors: temperatures, free storage, drives, SoC power, uptime, fan, running app."""
 
 from __future__ import annotations
 
@@ -12,8 +12,14 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTemperature, UnitOfTime
-from homeassistant.core import HomeAssistant
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfInformation,
+    UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
+)
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import Ps5HassConfigEntry, app_by_id
@@ -21,7 +27,15 @@ from .entity import Ps5HassEntity
 
 
 def _free_gib(state: dict[str, Any]) -> float | None:
-    mb = state["storage"]["data_free_mb"]
+    return _gib(state["storage"]["data_free_mb"])
+
+
+def _soc_watts(state: dict[str, Any]) -> float | None:
+    mw = (state.get("soc_power") or {}).get("total_mw")
+    return None if mw is None else round(mw / 1000, 1)
+
+
+def _gib(mb: int | None) -> float | None:
     return None if mb is None else round(mb / 1024, 1)
 
 
@@ -85,6 +99,17 @@ SENSORS = (
 )
 
 
+SOC_POWER = Ps5SensorDescription(
+    key="soc_power",
+    translation_key="soc_power",
+    device_class=SensorDeviceClass.POWER,
+    state_class=SensorStateClass.MEASUREMENT,
+    native_unit_of_measurement=UnitOfPower.WATT,
+    suggested_display_precision=1,
+    value=_soc_watts,
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: Ps5HassConfigEntry,
@@ -94,7 +119,25 @@ async def async_setup_entry(
     entities.append(Ps5RunningAppSensor(entry))
     entities.append(Ps5PowerSensor(entry))
     entities.append(Ps5PayloadsSensor(entry))
+    if entry.runtime_data.info.get("capabilities", {}).get("soc_power"):
+        entities.append(Ps5SocPowerSensor(entry, SOC_POWER))
     async_add_entities(entities)
+
+    # Drives come and go with the console: a sensor is created when its name first
+    # shows up in /state and stays (unavailable while the drive is missing).
+    known: set[str] = set()
+
+    @callback
+    def add_new_drives() -> None:
+        console = entry.runtime_data.state.data
+        drives = console.state.get("drives") if console and console.payload else None
+        new = [d["name"] for d in drives or [] if d["name"] not in known]
+        known.update(new)
+        if new:
+            async_add_entities(Ps5DriveSensor(entry, name) for name in new)
+
+    entry.async_on_unload(entry.runtime_data.state.async_add_listener(add_new_drives))
+    add_new_drives()
 
 
 class Ps5Sensor(Ps5HassEntity, SensorEntity):
@@ -109,6 +152,59 @@ class Ps5Sensor(Ps5HassEntity, SensorEntity):
         if not self.payload_up:
             return None
         return self.entity_description.value(self.coordinator.data.state)
+
+
+class Ps5SocPowerSensor(Ps5Sensor):
+    """Power drawn by the chip, from the console's own sensor."""
+
+    _attr_extra_state_attributes = {"note": "SoC only, not the wall socket"}
+
+
+class Ps5DriveSensor(Ps5HassEntity, SensorEntity):
+    """Free space of one external or extended drive (m2, extended, usb0..usb7)."""
+
+    _attr_device_class = SensorDeviceClass.DATA_SIZE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfInformation.GIBIBYTES
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, entry: Ps5HassConfigEntry, name: str) -> None:
+        super().__init__(entry, f"drive_{name}")
+        self._drive = name
+        if name == "m2":
+            self._attr_translation_key = "drive_m2"
+        elif name == "extended":
+            self._attr_translation_key = "drive_extended"
+        elif name.startswith("usb") and name[3:].isdigit():
+            self._attr_translation_key = "drive_usb"
+            self._attr_translation_placeholders = {"n": name[3:]}
+        else:
+            self._attr_translation_key = "drive_other"
+            self._attr_translation_placeholders = {"name": name}
+
+    @property
+    def suggested_object_id(self) -> str:
+        return f"storage free {self._drive}"  # sensor.ps5_storage_free_m2
+
+    def _info(self) -> dict[str, Any] | None:
+        if not self.payload_up:
+            return None
+        drives = self.coordinator.data.state.get("drives") or []
+        return next((d for d in drives if d["name"] == self._drive), None)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._info() is not None
+
+    @property
+    def native_value(self) -> float | None:
+        info = self._info()
+        return _gib(info["free_mb"]) if info else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        info = self._info()
+        return {"total_gib": _gib(info["total_mb"]) if info else None}
 
 
 class Ps5RunningAppSensor(Ps5HassEntity, SensorEntity):

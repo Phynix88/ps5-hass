@@ -24,6 +24,8 @@ KNOWN_ERRORS = {
     "power_off_disabled",
     "fan_control_disabled",
     "fan_above_stock",
+    "not_on",
+    "not_running",
 }
 
 

@@ -23,6 +23,9 @@ _LOGGER = logging.getLogger(__package__)
 # /info fields whose change needs a reload (entities depend on them)
 RELOAD_FIELDS = ("power_actions", "capabilities")
 
+# /state.power_state values that mean rest mode (payload v0.4)
+REST_STATES = ("going_to_rest", "rest")
+
 
 @dataclass
 class ConsoleState:
@@ -139,7 +142,9 @@ class StateCoordinator(DataUpdateCoordinator[ConsoleState]):
         self._reachable = True
         if state.get("apps_etag") != self.apps.etag:
             await self.apps.async_request_refresh()
-        return ConsoleState("on", True, state)
+        # rest mode shows at once; the payload keeps answering for a while, no hold needed
+        resting = state.get("power_state") in REST_STATES
+        return ConsoleState("standby" if resting else "on", True, state)
 
     @property
     def client_host(self) -> str:

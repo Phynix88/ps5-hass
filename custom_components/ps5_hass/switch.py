@@ -1,4 +1,4 @@
-"""Fan control on/off: off = the console's own threshold."""
+"""Fan control on/off (off = the console's own threshold) and keep awake."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .api import Ps5HassError
 from .coordinator import Ps5HassConfigEntry
-from .entity import Ps5HassEntity
+from .entity import Ps5HassEntity, raise_api_error
 from .fan import DEFAULT_TARGET, FAN_MAX, fan_state, set_fan
 
 
@@ -19,8 +20,13 @@ async def async_setup_entry(
     entry: Ps5HassConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    if entry.runtime_data.info.get("capabilities", {}).get("fan_control"):
-        async_add_entities([Ps5FanControl(entry)])
+    capabilities = entry.runtime_data.info.get("capabilities", {})
+    entities: list[SwitchEntity] = []
+    if capabilities.get("fan_control"):
+        entities.append(Ps5FanControl(entry))
+    if capabilities.get("keep_awake"):
+        entities.append(Ps5KeepAwake(entry))
+    async_add_entities(entities)
 
 
 class Ps5FanControl(Ps5HassEntity, SwitchEntity, RestoreEntity):
@@ -56,3 +62,32 @@ class Ps5FanControl(Ps5HassEntity, SwitchEntity, RestoreEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await set_fan(self, 0)
+
+
+class Ps5KeepAwake(Ps5HassEntity, SwitchEntity):
+    """While on, the payload keeps the console from powering down by itself."""
+
+    _attr_translation_key = "keep_awake"
+
+    def __init__(self, entry: Ps5HassConfigEntry) -> None:
+        super().__init__(entry, "keep_awake")
+
+    @property
+    def is_on(self) -> bool | None:
+        if not self.payload_up:
+            return None
+        value = self.coordinator.data.state.get("keep_awake")
+        return value if isinstance(value, bool) else None
+
+    async def _set(self, on: bool) -> None:
+        try:
+            await self.data.client.set_keep_awake(on)
+        except Ps5HassError as err:
+            raise_api_error(err)
+        await self.coordinator.async_refresh()
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._set(False)

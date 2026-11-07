@@ -1,4 +1,4 @@
-"""Buttons: close the running app, rest mode, one start button per favourite."""
+"""Buttons: close or minimise the running app, rest mode, one start button per favourite."""
 
 from __future__ import annotations
 
@@ -22,8 +22,11 @@ async def async_setup_entry(
     entities: list[ButtonEntity] = [Ps5CloseAppButton(entry)]
     if data.info.get("power_actions"):
         entities.append(Ps5RestModeButton(entry))
-    if data.info.get("capabilities", {}).get("power_off"):
+    capabilities = data.info.get("capabilities", {})
+    if capabilities.get("power_off"):
         entities.append(Ps5PowerOffButton(entry))
+    if capabilities.get("suspend"):
+        entities.append(Ps5MinimizeButton(entry))
     names: dict[str, str] = entry.options.get(OPT_FAVORITE_NAMES, {})
     for title_id in entry.options.get(OPT_FAVORITES, []):
         # always create the button (the console is usually off at startup);
@@ -103,6 +106,22 @@ class Ps5PowerOffButton(Ps5HassEntity, ButtonEntity):
     async def async_press(self) -> None:
         try:
             await self.data.client.power_off()
+        except Ps5HassError as err:
+            raise_api_error(err)
+        await self.coordinator.async_refresh()
+
+
+class Ps5MinimizeButton(Ps5HassEntity, ButtonEntity):
+    """Minimises the running game: it stays open, paused, and the console shows its home screen."""
+
+    _attr_translation_key = "minimize"
+
+    def __init__(self, entry: Ps5HassConfigEntry) -> None:
+        super().__init__(entry, "minimize")
+
+    async def async_press(self) -> None:
+        try:
+            await self.data.client.suspend()
         except Ps5HassError as err:
             raise_api_error(err)
         await self.coordinator.async_refresh()

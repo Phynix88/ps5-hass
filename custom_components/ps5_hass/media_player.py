@@ -74,7 +74,7 @@ class Ps5MediaPlayer(Ps5HassEntity, MediaPlayerEntity):
         console = self.coordinator.data
         if console is None:
             return MediaPlayerState.OFF
-        if not console.payload:
+        if not console.payload or console.power == "standby":
             return POWER_STATES[console.power]
         return MediaPlayerState.PLAYING if self.running else MediaPlayerState.IDLE
 

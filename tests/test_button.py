@@ -62,3 +62,23 @@ async def test_favorite_buttons_created_and_launch(hass, fake) -> None:
     assert fake.running[0] == "PPSA96708"
     fake_call = [c for c in fake.calls if c[1] == "/apps/PPSA96708/launch"][-1]
     assert fake_call[3] == {"replace_running": True}
+
+
+async def test_minimize_button_calls_api(hass, fake, freezer) -> None:
+    await _setup(hass, fake)
+    fake.running = ("PPSA00001", 24)
+    await tick(hass, freezer, 11)
+    await _press(hass, "button.ps5_minimize")
+    assert fake.running is None
+    assert [c for c in fake.calls if c[1] == "/apps/running/suspend"]
+
+
+async def test_minimize_button_errors(hass, fake, freezer) -> None:
+    await _setup(hass, fake)
+    with pytest.raises(HomeAssistantError) as err:
+        await _press(hass, "button.ps5_minimize")  # nothing running
+    assert err.value.translation_key == "not_running"
+    fake.power_state = "rest"
+    with pytest.raises(HomeAssistantError) as err:
+        await _press(hass, "button.ps5_minimize")
+    assert err.value.translation_key == "not_on"

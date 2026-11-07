@@ -15,7 +15,7 @@ blueprint:
   input:
     playtime_sensor:
       name: Play time sensor
-      description: The "Play time today" sensor of the PS5 (minutes).
+      description: The "Play time today" sensor of the PS5. Keep its unit in minutes.
       selector:
         entity:
           filter:
@@ -23,7 +23,7 @@ blueprint:
               device_class: duration
     limit_minutes:
       name: Daily limit
-      description: Minutes of play time per day.
+      description: Minutes of play time per day (the play time sensor's unit must stay minutes).
       default: 120
       selector:
         number:

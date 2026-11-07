@@ -149,9 +149,11 @@ class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
 class Ps5PlaytimeEntity(CoordinatorEntity[PlaytimeCoordinator]):
     """Common base of the play time sensors.
 
-    Available once the first /playtime answer is in. Later outages of the payload do not
-    make it unavailable: the console being off is the normal case, play time is a total
-    that is still true, and a gap would only break the long-term statistics.
+    Available once the first /playtime answer since Home Assistant started is in; nothing is
+    restored, so after a restart while the console is off they stay unavailable until the
+    payload answers again. Later outages of the payload do not make it unavailable: the
+    console being off is the normal case, play time is a total that is still true, and a gap
+    would only break the long-term statistics.
     """
 
     _attr_has_entity_name = True

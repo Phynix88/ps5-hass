@@ -69,8 +69,8 @@ existing entry and reports "already set up".
 | `sensor.ps5_playtime_<title id>` | total play time of one game in minutes (for example `sensor.ps5_playtime_ppsa01234`), created when the game is first played. See *Play time* |
 | `sensor.ps5_running_app` | name, attributes `title_id`, `kind` |
 | `sensor.ps5_power` | `on`, `standby` (rest mode), `off`. With payload v0.4 rest mode shows at once |
-| `sensor.ps5_payloads` | number of running payloads, attribute `names` |
-| `binary_sensor.ps5_jailbreak_kstuff`, `binary_sensor.ps5_shadowmount`, `binary_sensor.ps5_ftp_server`, `binary_sensor.ps5_websrv` | whether that payload runs (`kstuff.elf`, `shadowmountplus.elf`, `ftpsrv.elf`, `websrv.elf`; diagnostic) |
+| `sensor.ps5_payloads` | number of running payloads, attribute `names`; unknown while the console is not on |
+| `binary_sensor.ps5_jailbreak_kstuff`, `binary_sensor.ps5_shadowmount`, `binary_sensor.ps5_ftp_server`, `binary_sensor.ps5_websrv` | whether that payload runs (`kstuff.elf`, `shadowmountplus.elf`, `ftpsrv.elf`, `websrv.elf`; diagnostic; unknown while the console is not on) |
 | `update.ps5_payload` | a newer ps5-hass payload is on GitHub (checked every 6 hours); install it in the Payload Manager on the console, not from Home Assistant. See *Payload updates* |
 | `switch.ps5_payload_<name>` | starts and stops a payload through the Payload Manager, one per payload it lists, for example `switch.ps5_payload_ftpsrv`. See *Payload switches* |
 | `sensor.ps5_uptime`, `sensor.ps5_fan_raw` | diagnostic, disabled by default (the fan value is the raw console value) |
@@ -113,7 +113,11 @@ lost while Home Assistant is down.
   **does** count. A minimised game does not count.
 - **Games only:** apps (streaming, media, the store) do not count towards the day and week sensors and get no
   sensor of their own.
-- The sensors stay available while the console is off; the total is still true.
+- Once they have a value, the sensors stay available while the console is off; the total is still true. After a
+  restart of Home Assistant while the console is off they are unavailable until the payload answers again.
+- The values never go down: if the payload loses its last minute of counting (update, power cut), the sensors keep
+  the higher value. Today starts again at midnight, the week on Monday.
+- Keep the sensors' unit in minutes: the play time limit blueprint compares the state with minutes.
 - Attribute `console_total_min` of a game's sensor is the **console total**: the console's own count for that game
   (all users, also from before ps5-hass was installed), when the console knows it. It is Sony's number and can
   differ from the sensor, which counts only from the first start of the payload.
@@ -129,7 +133,7 @@ blueprint and fill in:
 
 | Input | Meaning |
 |---|---|
-| Play time sensor | `sensor.ps5_playtime_today` |
+| Play time sensor | `sensor.ps5_playtime_today` (its unit must stay minutes) |
 | Daily limit, warn this long before | minutes (default 120 and 15; 0 turns the warning off) |
 | TV notifications | `notify.ps5` |
 | At the limit | close the game, minimise it or rest mode |

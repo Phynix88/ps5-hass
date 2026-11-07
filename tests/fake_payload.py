@@ -62,6 +62,7 @@ class FakePayload:
             "launch": True, "standby": True, "mdns": True,
         }
         self.has_user = True
+        self.version = "0.1.0"
         self.standby_calls = 0
         self.fail: dict[str, tuple[int, dict[str, Any]]] = {}  # path -> once
         self.calls: list[tuple[str, str, dict[str, str], Any]] = []
@@ -115,7 +116,7 @@ class FakePayload:
 
     def info(self) -> dict[str, Any]:
         return {
-            "result": "ok", "name": "ps5-hass", "version": "0.1.0",
+            "result": "ok", "name": "ps5-hass", "version": self.version,
             "commit": "abc1234", "api": 1, "device_id": self.device_id,
             "model": "CFI-TEST", "firmware": "13.60",
             "paired": bool(self.tokens), "power_actions": self.power_actions,

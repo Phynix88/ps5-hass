@@ -64,6 +64,7 @@ existing entry and reports "already set up".
 | `sensor.ps5_power` | `on`, `standby`, `off` |
 | `sensor.ps5_payloads` | number of running payloads, attribute `names` |
 | `binary_sensor.ps5_jailbreak_kstuff`, `binary_sensor.ps5_shadowmount`, `binary_sensor.ps5_ftp_server`, `binary_sensor.ps5_websrv` | whether that payload runs (`kstuff.elf`, `shadowmountplus.elf`, `ftpsrv.elf`, `websrv.elf`; diagnostic) |
+| `update.ps5_payload` | a newer ps5-hass payload is on GitHub (checked every 6 hours); install it in the Payload Manager on the console, not from Home Assistant |
 | `sensor.ps5_uptime`, `sensor.ps5_fan_raw` | diagnostic, disabled by default (the fan value is the raw console value) |
 | `image.ps5_cover` | cover of the running app |
 | `event.ps5_app` | `started` / `stopped` with `title_id`, `name`, `kind`. No event when the console goes to rest mode or off; if the app is gone afterwards, `stopped` fires when the payload is back. Use `sensor.ps5_power` for power changes. |

@@ -215,6 +215,11 @@
       "fan_control": {
         "name": "Lüftersteuerung"
       }
+    },
+    "update": {
+      "payload": {
+        "name": "Payload"
+      }
     }
   }
 }

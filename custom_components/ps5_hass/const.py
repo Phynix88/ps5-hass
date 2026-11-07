@@ -17,3 +17,7 @@ OPT_FAVORITE_NAMES: Final = "favorite_names"  # title id -> name at selection ti
 LABEL: Final = "Home Assistant"
 MANUFACTURER: Final = "Sony Interactive Entertainment"
 DEVICE_NAME: Final = "PS5"
+PAYLOAD_RELEASE_URL: Final = (
+    "https://raw.githubusercontent.com/Phynix88/ps5-hass-payload/main/payloads.json"
+)
+PAYLOAD_RELEASE_INTERVAL: Final = 6 * 3600  # s

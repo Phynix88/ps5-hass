@@ -215,6 +215,11 @@
       "fan_control": {
         "name": "Fan control"
       }
+    },
+    "update": {
+      "payload": {
+        "name": "Payload"
+      }
     }
   }
 }

@@ -35,7 +35,8 @@
       "cannot_connect": "Der Payload ist nicht erreichbar. Ist die Konsole an und der Payload geladen?",
       "wrong_code": "Falscher Code. Noch {attempts_left} Versuche.",
       "code_expired": "Der Code ist abgelaufen oder verbraucht. „Neuen Code anzeigen“ ankreuzen.",
-      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor ein neuer Code angefordert wird."
+      "rate_limited": "Bitte {retry_after} Sekunden warten, bevor ein neuer Code angefordert wird.",
+      "not_on": "Die PS5 ist nicht eingeschaltet (Ruhemodus oder auf dem Weg dorthin). PS5 einschalten und erneut versuchen."
     },
     "abort": {
       "already_configured": "Diese PS5 ist bereits eingerichtet.",

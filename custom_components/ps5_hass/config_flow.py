@@ -184,6 +184,8 @@ class Ps5HassConfigFlow(ConfigFlow, domain=DOMAIN):
         if err.code == "rate_limited":
             self._placeholders["retry_after"] = str(err.retry_after or 30)
             return {"base": "rate_limited"}
+        if err.code == "not_on":  # the code is shown on the TV: not in rest mode
+            return {"base": "not_on"}
         return {"base": "cannot_connect"}
 
     def _pair_form(self, errors: dict[str, str]) -> ConfigFlowResult:

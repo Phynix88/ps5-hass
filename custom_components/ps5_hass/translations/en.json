@@ -35,7 +35,8 @@
       "cannot_connect": "Cannot reach the payload. Is the console on and the payload loaded?",
       "wrong_code": "Wrong code. {attempts_left} attempts left.",
       "code_expired": "The code has expired or is used up. Tick \"Show a new code\".",
-      "rate_limited": "Please wait {retry_after} seconds before asking for a new code."
+      "rate_limited": "Please wait {retry_after} seconds before asking for a new code.",
+      "not_on": "The PS5 is not on (it is in rest mode or going there). Turn the PS5 on and try again."
     },
     "abort": {
       "already_configured": "This PS5 is already set up.",

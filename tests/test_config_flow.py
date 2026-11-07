@@ -113,6 +113,20 @@ async def test_rate_limited_shows_wait(hass: HomeAssistant, fake: FakePayload) -
     assert result["description_placeholders"]["retry_after"] == "21"
 
 
+async def test_not_on_asks_to_turn_the_console_on(hass: HomeAssistant, fake: FakePayload) -> None:
+    """Pairing shows its code on the TV: outside "on" the payload answers 409 not_on."""
+    result = await _to_pair_step(hass, fake)
+    fake.fail["/pair/start"] = (409, {"error": "not_on"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"code": "", "new_code": True}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "not_on"}
+    fake.fail["/pair/finish"] = (409, {"error": "not_on"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"code": "123456"})
+    assert result["errors"] == {"base": "not_on"}
+
+
 async def test_locked_aborts(hass: HomeAssistant, fake: FakePayload) -> None:
     result = await _to_pair_step(hass, fake)
     fake.fail["/pair/finish"] = (429, {"error": "locked", "retry_after": 900})

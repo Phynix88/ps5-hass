@@ -14,7 +14,7 @@ Sony's own status query (to tell "rest mode" from "off").
 ## Requirements
 
 - A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
-  the Payload Manager and put into the autoload). Payload **v0.4 or later** for everything described here: play
+  the Payload Manager and put into the autoload). Payload **v0.4.1 or later** (v0.4.0 can hang a console when a payload is stopped during a game) for everything described here: play
   time, payload switches, keeping awake, minimising, chip power, external drives, and rest mode, power off and the
   fan without any setting. A **v0.3** payload still works, without these new features (their entities do not appear),
   and rest mode, power off and the fan only if they were allowed on the console before. v0.1.0 and v0.2.0 also lack
@@ -152,8 +152,10 @@ tomorrow; closing it loses unsaved progress.
 Manager's version. The switches are unavailable while the Payload Manager does not answer (it must be running on the
 console, and the console on).
 
-- **Protected payloads never get a switch:** kstuff, the ELF loader, the Payload Manager and ps5-hass itself can be
-  neither started nor stopped from Home Assistant.
+- **Only while no game or app runs.** Stopping or starting a payload during a game can hang the console, so the
+  payload (v0.4.1 or later; update from v0.4.0) refuses with "Close the running game or app on the PS5 first."
+- **Protected payloads never get a switch:** kstuff, etaHEN, the ELF loader, the Payload Manager, ps5-hass itself,
+  CheatRunner (any cheat payload) and ps5debug can be neither started nor stopped from Home Assistant.
 - Stopping a payload ends its process. A payload that was updated in the Payload Manager keeps its switch.
 - The binary sensors above and `sensor.ps5_payloads` show what runs; the switches change it.
 

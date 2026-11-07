@@ -131,6 +131,9 @@
     },
     "unknown_payload": {
       "message": "Der Payload Manager kennt diesen Payload nicht mehr."
+    },
+    "app_running": {
+      "message": "Schließe zuerst das laufende Spiel oder die App auf der PS5."
     }
   },
   "entity": {

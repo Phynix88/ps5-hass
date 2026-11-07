@@ -31,6 +31,7 @@ KNOWN_ERRORS = {
     "protected",
     "payload_manager_unavailable",
     "unknown_payload",
+    "app_running",
 }
 
 

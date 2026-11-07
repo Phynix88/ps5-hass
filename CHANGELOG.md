@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1
+
+**Update the payload to v0.4.1 as well.** v0.4.0 allowed stopping payloads while a game ran; stopping CheatRunner
+during a game hung a console. Update to v0.4.1.
+
+- Payload switches only work while no game or app runs; otherwise "Close the running game or app on the PS5 first."
+- CheatRunner (any cheat payload) and ps5debug never get a switch (the payload protects them).
+
 ## v0.4.0
 
 Needs the ps5-hass payload v0.4.0 for the new features; a v0.3 payload keeps working without them (the new entities

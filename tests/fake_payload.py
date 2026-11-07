@@ -117,6 +117,7 @@ class FakePayload:
              "running": True, "protected": True},
         ]
         self.payload_manager = True  # False: not reachable
+        self.pldmgr_actions = 0  # starts and stops that reached the Payload Manager
         self._pldmgr_ok = False  # the last call to the Payload Manager worked
         self._pairing = False
         self._attempts = 0
@@ -480,6 +481,12 @@ class FakePayload:
             "current": self.playtime_current,
         })
 
+    @staticmethod
+    def _protected_name(*names: Any) -> bool:
+        """The payload's own list: kstuff, etaHEN, the loader, the Payload Manager, itself, cheat payloads, ps5debug."""
+        needles = ("kstuff", "etahen", "elfldr", "pldmgr", "ps5-hass", "cheat", "ps5debug")
+        return any(isinstance(n, str) and any(x in n.lower() for x in needles) for n in names)
+
     def _payloads(self) -> web.Response:
         if not self.payload_manager:
             self._pldmgr_ok = False
@@ -488,21 +495,28 @@ class FakePayload:
         if not self.payload_manager or not self._is_on():  # outside "on" it is not even asked
             return self._json("payloads", {"result": "ok", "available": False, "payloads": []})
         return self._json("payloads", {"result": "ok", "available": True,
-                                       "payloads": [dict(p) for p in self.payload_list]})
+                                       "payloads": [
+            {**p, "protected": p["protected"] or self._protected_name(p["slot"], p["name"])}
+            for p in self.payload_list]})
 
     def _payload_action(self, body: dict[str, Any], *, start: bool) -> web.Response:
         slot = body.get("slot")
         if not isinstance(slot, str) or not slot:
             return self._error(400, "bad_request")
+        if self._protected_name(slot):  # protected, then a running app: before any contact
+            return self._error(403, "protected")
+        if self.running:  # a game or app runs: nothing is started or stopped
+            return self._error(409, "app_running")
         if not self.payload_manager:
             self._pldmgr_ok = False
             return self._error(503, "payload_manager_unavailable")
         entry = next((p for p in self.payload_list if p["slot"] == slot), None)
         if entry is None:
             return self._error(404, "unknown_payload")
-        if entry["protected"]:  # never started or stopped, the Payload Manager is not asked
+        if entry["protected"] or self._protected_name(entry["name"]):  # the Payload Manager is not asked
             return self._error(403, "protected")
         if entry["running"] == start:
             return self._error(409, "already_running" if start else "not_running")
+        self.pldmgr_actions += 1
         entry["running"] = start
         return self._json("ok", {"result": "ok"})

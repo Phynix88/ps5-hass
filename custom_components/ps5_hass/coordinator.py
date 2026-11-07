@@ -19,6 +19,7 @@ from .const import APPS_INTERVAL, CONF_INFO, DDP_PORT, DOMAIN, HOLD_SECONDS, STA
 from .ddp import ddp_status
 
 if TYPE_CHECKING:
+    from .payloads import PayloadsCoordinator
     from .playtime import PlaytimeCoordinator
 
 _LOGGER = logging.getLogger(__package__)
@@ -48,6 +49,7 @@ class Ps5HassData:
     apps: AppsCoordinator
     info: dict[str, Any]
     playtime: PlaytimeCoordinator | None = None  # only with capabilities.playtime
+    payloads: PayloadsCoordinator | None = None  # only with the payload_control capability key
 
 
 type Ps5HassConfigEntry = ConfigEntry[Ps5HassData]
@@ -63,9 +65,18 @@ def clean_info(info: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in info.items() if k != "result"}
 
 
+def _reload_view(info: dict[str, Any], field: str) -> Any:
+    value = info.get(field)
+    if field == "capabilities" and isinstance(value, dict):
+        # payload_control only follows the payload's first /payloads call (false before it):
+        # whether the key exists is what the entities depend on, not its value
+        return {k: (True if k == "payload_control" else v) for k, v in value.items()}
+    return value
+
+
 def info_needs_reload(old: dict[str, Any], new: dict[str, Any]) -> bool:
     """True when entities would change with the new /info."""
-    return any(old.get(k) != new.get(k) for k in RELOAD_FIELDS)
+    return any(_reload_view(old, k) != _reload_view(new, k) for k in RELOAD_FIELDS)
 
 
 class AppsCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):

@@ -121,6 +121,15 @@
     },
     "not_running": {
       "message": "No game is running on the PS5."
+    },
+    "protected": {
+      "message": "This payload is protected and cannot be started or stopped."
+    },
+    "payload_manager_unavailable": {
+      "message": "The Payload Manager on the PS5 is not reachable."
+    },
+    "unknown_payload": {
+      "message": "The Payload Manager does not list this payload any more."
     }
   },
   "entity": {

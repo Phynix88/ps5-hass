@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .api import ApiError, AuthError, CannotConnect, Ps5HassError
 from .const import DEVICE_NAME, DOMAIN, MANUFACTURER
 from .coordinator import Ps5HassConfigEntry, Ps5HassData, StateCoordinator
+from .payloads import PayloadsCoordinator
 from .playtime import PlaytimeCoordinator
 
 # payload error codes with their own message; everything else -> request_failed
@@ -27,6 +28,9 @@ KNOWN_ERRORS = {
     "fan_above_stock",
     "not_on",
     "not_running",
+    "protected",
+    "payload_manager_unavailable",
+    "unknown_payload",
 }
 
 
@@ -145,3 +149,22 @@ class Ps5PlaytimeEntity(CoordinatorEntity[PlaytimeCoordinator]):
     @property
     def available(self) -> bool:
         return super().available and bool(self.coordinator.data)
+
+
+class Ps5PayloadEntity(CoordinatorEntity[PayloadsCoordinator]):
+    """Common base of the payload switches: available while the Payload Manager answers."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: Ps5HassConfigEntry, key: str) -> None:
+        payloads = entry.runtime_data.payloads
+        assert payloads is not None
+        super().__init__(payloads)
+        self.entry = entry
+        self._attr_unique_id = f"{entry.runtime_data.info['device_id']}_{key}"
+        self._attr_device_info = device_info(entry)
+
+    @property
+    def available(self) -> bool:
+        data = self.coordinator.data
+        return super().available and self.coordinator.usable and bool(data and data["available"])

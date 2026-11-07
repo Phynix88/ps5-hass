@@ -16,6 +16,7 @@ from .coordinator import (
     StateCoordinator,
     clean_info,
 )
+from .payloads import PayloadsCoordinator
 from .playtime import PlaytimeCoordinator
 
 PLATFORMS: list[Platform] = [
@@ -61,6 +62,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> b
         entry.async_on_unload(playtime.follow(state))
         await playtime.async_refresh()
         entry.async_on_unload(playtime.async_add_listener(lambda: None))
+    # The key is there from v0.4 on; its value stays false until the first /payloads call.
+    if "payload_control" in info.get("capabilities", {}):
+        payloads = PayloadsCoordinator(hass, entry, client)
+        entry.runtime_data.payloads = payloads
+        entry.async_on_unload(payloads.follow(state))
+        await payloads.async_refresh()
+        entry.async_on_unload(payloads.async_add_listener(lambda: None))
     # Coordinators only poll while someone listens; keep them polling even if
     # every entity is disabled (state changes drive the app events).
     entry.async_on_unload(apps.async_add_listener(lambda: None))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -40,7 +42,77 @@ async def test_switch_per_unprotected_payload(hass: HomeAssistant, fake) -> None
     assert hass.states.get(WEBSRV).attributes["version"] == ""
     registry = er.async_get(hass)
     entry = registry.async_get(FTPSRV)
-    assert entry.unique_id == f"{fake.device_id}_payload_repo_ftpsrv_e8cce5d1"  # no "/" or "@"
+    assert entry.unique_id == f"{fake.device_id}_payload_repo_ftpsrv"  # no "/", no hash
+
+
+async def test_hash_change_keeps_the_entity(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake)
+    registry = er.async_get(hass)
+    unique_id = registry.async_get(FTPSRV).unique_id
+    # the payload or the catalogue is updated: same payload, new hash in the slot
+    fake.payload_list[0]["slot"] = "repo/ftpsrv@0f0f0f0f"
+    fake.payload_list[0]["running"] = True
+    await tick(hass, freezer, 31)
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV}  # no ..._2
+    assert hass.states.get(FTPSRV).state == "on"
+    assert registry.async_get(FTPSRV).unique_id == unique_id
+    await hass.services.async_call("switch", "turn_off", {"entity_id": FTPSRV}, blocking=True)
+    assert [c[3] for c in _requests(fake, "/payloads/stop")] == [{"slot": "repo/ftpsrv@0f0f0f0f"}]
+    assert hass.states.get(FTPSRV).state == "off"
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    assert [c[3] for c in _requests(fake, "/payloads/start")] == [{"slot": "repo/ftpsrv@0f0f0f0f"}]
+
+
+async def test_duplicate_key_gets_one_entity(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake)
+    fake.payload_list.append({"slot": "repo/ftpsrv@99999999", "name": "ftpsrv", "version": "9",
+                              "running": True, "protected": False})
+    await tick(hass, freezer, 31)
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV}
+    assert hass.states.get(FTPSRV).state == "off"  # the first one counts
+    assert hass.states.get(FTPSRV).attributes["version"] == "1.2"
+
+
+async def test_local_upload_without_hash(hass: HomeAssistant, fake, freezer) -> None:
+    fake.payload_list.append({"slot": "upload/tool.elf", "name": "tool", "version": "",
+                              "running": False, "protected": False})
+    await _setup(hass, fake)
+    assert hass.states.get("switch.ps5_payload_tool").state == "off"
+    registry = er.async_get(hass)
+    assert registry.async_get("switch.ps5_payload_tool").unique_id == f"{fake.device_id}_payload_upload_tool_elf"
+
+
+async def test_keeps_its_name_when_dropped_from_the_list(hass: HomeAssistant, fake, freezer) -> None:
+    await _setup(hass, fake)
+    del fake.payload_list[0]
+    await tick(hass, freezer, 31)
+    state = hass.states.get(FTPSRV)
+    assert state.state == "unavailable"
+    assert state.attributes["friendly_name"] == "PS5 ftpsrv"
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    assert not _requests(fake, "/payloads/start")  # an unavailable entity is not called
+
+
+async def test_incomplete_entries_fail_safe(hass: HomeAssistant, fake) -> None:
+    answer = {"result": "ok", "available": True, "payloads": [
+        *fake.payload_list,
+        {"name": "no slot", "running": False, "protected": False},
+        {"slot": "repo/unmarked@aa", "name": "unmarked", "version": "", "running": False},  # no flag
+    ]}
+    with patch("custom_components.ps5_hass.api.Ps5HassClient.payloads", AsyncMock(return_value=answer)):
+        await _setup(hass, fake)
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV}
+
+
+async def test_console_off_at_startup(hass: HomeAssistant, fake, freezer) -> None:
+    fake.power_state = "rest"
+    await _setup(hass, fake)
+    assert _payload_switches(hass) == set()
+    assert not _requests(fake, "/payloads")
+    fake.power_state = "on"
+    await tick(hass, freezer, 11)
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV}
+    assert hass.states.get(FTPSRV).state == "off"
 
 
 async def test_state_follows_the_list(hass: HomeAssistant, fake, freezer) -> None:

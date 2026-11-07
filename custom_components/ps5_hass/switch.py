@@ -13,6 +13,7 @@ from homeassistant.util import slugify
 from .api import ApiError, Ps5HassError
 from .coordinator import Ps5HassConfigEntry
 from .entity import Ps5HassEntity, Ps5PayloadEntity, raise_api_error
+from .payloads import listed_by_key
 from .fan import DEFAULT_TARGET, FAN_MAX, fan_state, set_fan
 
 
@@ -39,11 +40,14 @@ async def async_setup_entry(
 
     @callback
     def add_new_payloads() -> None:
-        listed = (payloads.data or {}).get("payloads", [])
-        new = [p["slot"] for p in listed if not p["protected"] and p["slot"] not in known]
+        new = {
+            key: item
+            for key, item in listed_by_key(payloads.data).items()
+            if key not in known and not item.get("protected", True)
+        }
         known.update(new)
         if new:
-            async_add_entities(Ps5PayloadSwitch(entry, slot) for slot in new)
+            async_add_entities(Ps5PayloadSwitch(entry, key, item) for key, item in new.items())
 
     entry.async_on_unload(payloads.async_add_listener(add_new_payloads))
     add_new_payloads()
@@ -114,48 +118,56 @@ class Ps5KeepAwake(Ps5HassEntity, SwitchEntity):
 
 
 class Ps5PayloadSwitch(Ps5PayloadEntity, SwitchEntity):
-    """One payload of the Payload Manager: on while it runs. Protected ones cannot be switched."""
+    """One payload of the Payload Manager: on while it runs. Protected ones cannot be switched.
 
-    def __init__(self, entry: Ps5HassConfigEntry, slot: str) -> None:
-        # the slot has "/" and "@" in it (repo/name@hash)
-        super().__init__(entry, f"payload_{slugify(slot)}")
-        self._slot = slot
+    Identified by its key (the slot without the "@hash" part), so an update of the payload
+    keeps the entity; start and stop use the slot as listed right now.
+    """
+
+    def __init__(self, entry: Ps5HassConfigEntry, key: str, item: dict[str, Any]) -> None:
+        super().__init__(entry, f"payload_{slugify(key)}")  # the key has "/" in it
+        self._key = key
+        self._name = str(item.get("name") or key)
 
     def _listed(self) -> dict[str, Any] | None:
-        listed = (self.coordinator.data or {}).get("payloads", [])
-        return next((p for p in listed if p["slot"] == self._slot), None)
+        return listed_by_key(self.coordinator.data).get(self._key)
 
     @property
     def suggested_object_id(self) -> str:
-        return f"payload {slugify(self._listed()['name'] if self._listed() else self._slot)}"
+        return f"payload {slugify(self._name)}"  # language independent
 
     @property
     def name(self) -> str:
         listed = self._listed()
-        return listed["name"] if listed else self._slot
+        if listed and listed.get("name"):
+            self._name = str(listed["name"])
+        return self._name  # a payload that drops out of the list keeps its name
 
     @property
     def available(self) -> bool:
         listed = self._listed()
-        return super().available and listed is not None and not listed["protected"]
+        return super().available and listed is not None and not listed.get("protected", True)
 
     @property
     def is_on(self) -> bool | None:
         listed = self._listed()
-        return listed["running"] if listed else None
+        return bool(listed.get("running")) if listed else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         listed = self._listed()
-        return {"version": listed["version"] if listed else None}
+        return {"version": listed.get("version") if listed else None}
 
     async def _set(self, on: bool) -> None:
+        listed = self._listed()
+        if listed is None:  # not listed any more: the Payload Manager would say 404 for it too
+            raise_api_error(ApiError(404, {"error": "unknown_payload"}))
         client = self.entry.runtime_data.client
         try:
             if on:
-                await client.payload_start(self._slot)
+                await client.payload_start(listed["slot"])
             else:
-                await client.payload_stop(self._slot)
+                await client.payload_stop(listed["slot"])
         except ApiError as err:
             if err.code != ("already_running" if on else "not_running"):
                 raise_api_error(err)

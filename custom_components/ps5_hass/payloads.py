@@ -23,6 +23,25 @@ _LOGGER = logging.getLogger(__package__)
 NONE: dict[str, Any] = {"available": False, "payloads": []}
 
 
+def payload_key(slot: str) -> str:
+    """The part of a slot that survives updates: "repo/ftpsrv@e8cce5d1" -> "repo/ftpsrv".
+
+    The hash changes with the payload or the catalogue; a slot without "@" (a local upload)
+    is its own key.
+    """
+    return slot.partition("@")[0] or slot
+
+
+def listed_by_key(data: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """The listed payloads by key. Entries without a slot are skipped; of several with one key the first wins."""
+    out: dict[str, dict[str, Any]] = {}
+    for item in (data or {}).get("payloads", []):
+        slot = item.get("slot") if isinstance(item, dict) else None
+        if isinstance(slot, str) and slot:
+            out.setdefault(payload_key(slot), item)
+    return out
+
+
 class PayloadsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """/payloads every 30 s and at once when the console is on and the payload answers again.
 

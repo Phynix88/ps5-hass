@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from aiohttp import ClientError
@@ -14,9 +14,10 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.ps5_hass.const import PAYLOAD_RELEASE_INTERVAL, PAYLOAD_RELEASE_URL
 
 from .conftest import entry_for
-from .helpers import tick
+from .helpers import tick, tick_until
 
 ENTITY = "update.ps5_payload"
+DDP = "custom_components.ps5_hass.coordinator.ddp_status"
 SESSION = "custom_components.ps5_hass.update.async_get_clientsession"
 
 
@@ -131,6 +132,7 @@ async def test_network_error_unknown_no_spam(
     "answer",
     [
         {"status": 404},
+        {"exc": TimeoutError()},
         {"text": "not json"},
         {"json": ["not", "an", "object"]},
         {"json": {"payloads": []}},
@@ -153,3 +155,33 @@ async def test_update_found_on_later_poll(hass: HomeAssistant, fake, github, fre
     github.get(PAYLOAD_RELEASE_URL, json=feed("v0.4.0"))
     await tick(hass, freezer, PAYLOAD_RELEASE_INTERVAL)
     assert hass.states.get(ENTITY).state == "on"
+
+
+async def test_replaced_payload_clears_the_update_at_once(
+    hass: HomeAssistant, fake, github, freezer
+) -> None:
+    """The owner replaces the payload on the console: no waiting for the next GitHub check."""
+    github.get(PAYLOAD_RELEASE_URL, json=feed("v0.4.0"))
+    await _setup(hass, fake, version="v0.3.1")
+    state = hass.states.get(ENTITY)
+    assert state.state == "on" and state.attributes["installed_version"] == "0.3.1"
+
+    fake.down = True  # the console reloads the payload
+    with patch(DDP, AsyncMock(return_value="on")):
+        await tick_until(hass, freezer, lambda: hass.states.get("sensor.ps5_power").state == "on"
+                         and hass.states.get("sensor.ps5_cpu_temperature").state == "unavailable")
+        fake.version = "v0.4.0"
+        fake.down = False
+        await tick_until(
+            hass, freezer,
+            lambda: hass.states.get(ENTITY).attributes["installed_version"] == "0.4.0",
+        )
+    state = hass.states.get(ENTITY)
+    assert state.state == "off"
+    assert github.call_count == 1  # no new GitHub check was needed
+
+
+async def test_summary_only_with_an_update(hass: HomeAssistant, fake, github) -> None:
+    github.get(PAYLOAD_RELEASE_URL, json=feed("v0.3.1"))
+    await _setup(hass, fake, version="v0.3.1")
+    assert hass.states.get(ENTITY).attributes["release_summary"] is None

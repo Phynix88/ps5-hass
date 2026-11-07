@@ -10,6 +10,7 @@ from typing import Any
 from aiohttp import ClientTimeout
 from awesomeversion import AwesomeVersionCompareException
 from homeassistant.components.update import UpdateEntity
+from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -28,8 +29,8 @@ LOOKS_LIKE_VERSION = re.compile(r"\d")  # "dev" and "host" builds are not versio
 
 # Shown with the update; installing happens on the console, not here.
 HOW_TO_UPDATE = {
-    "en": "Open the Payload Manager on the console and replace ps5-hass.elf with the new release.",
-    "de": "Im Payload Manager auf der Konsole ps5-hass.elf durch die neue Version ersetzen.",
+    "en": "Replace ps5-hass.elf in the Payload Manager on the console.",
+    "de": "ps5-hass.elf im Payload Manager auf der Konsole ersetzen.",
 }
 
 
@@ -134,7 +135,7 @@ class Ps5PayloadUpdate(Ps5HassEntity, UpdateEntity):
 
     @property
     def release_summary(self) -> str | None:
-        if self.latest_version is None:
+        if self.state != STATE_ON:  # HA has no translation for release summaries
             return None
         return HOW_TO_UPDATE.get(self.hass.config.language.split("-")[0], HOW_TO_UPDATE["en"])
 

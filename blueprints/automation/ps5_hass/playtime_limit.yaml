@@ -1,0 +1,192 @@
+blueprint:
+  name: PS5 play time limit
+  description: >
+    Warns on the TV shortly before the daily play time is used up, then closes the game, minimises it or puts the
+    console into rest mode. If a game is started again later the same day, the action runs again, with a notice on
+    the TV.
+
+
+    Needs the "Play time today" sensor of the PS5 (ps5-hass) integration (payload v0.4 or later). Only games count,
+    and only while they are in the foreground.
+  domain: automation
+  source_url: https://github.com/Phynix88/ps5-hass/blob/main/blueprints/automation/ps5_hass/playtime_limit.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    playtime_sensor:
+      name: Play time sensor
+      description: The "Play time today" sensor of the PS5 (minutes).
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: duration
+    limit_minutes:
+      name: Daily limit
+      description: Minutes of play time per day.
+      default: 120
+      selector:
+        number:
+          min: 1
+          max: 1440
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    warn_minutes:
+      name: Warn this long before
+      description: Minutes before the limit at which the TV shows a warning. 0 turns the warning off.
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    notify_entity:
+      name: TV notifications
+      description: The PS5 notify entity (messages on the TV).
+      selector:
+        entity:
+          filter:
+            - domain: notify
+    action:
+      name: At the limit
+      description: >
+        What happens when the limit is reached, and again when a game is started after that. Set the button for the
+        action you choose below.
+      default: close
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Close the game
+              value: close
+            - label: Minimise the game (it stays open, paused)
+              value: minimize
+            - label: Rest mode
+              value: rest
+    close_button:
+      name: Close app button
+      description: The PS5 "Close app" button. Needed for "Close the game".
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: button
+    minimize_button:
+      name: Minimise button
+      description: The PS5 "Minimize" button. Needed for "Minimise the game".
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: button
+    rest_button:
+      name: Rest mode button
+      description: The PS5 "Rest mode" button. Needed for "Rest mode".
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: button
+    warn_message:
+      name: Warning text
+      description: Shown on the TV before the limit. "{{ warn_minutes }}" is the number of minutes left.
+      default: Play time for today ends in {{ warn_minutes | int }} minutes
+      selector:
+        text:
+    over_message:
+      name: Text when play time is over
+      description: Shown on the TV when a game is started after the limit.
+      default: Play time for today is over
+      selector:
+        text:
+
+# How "once per day" works, without helpers and without stored state:
+#
+# The play time sensor counts from 0 at local midnight, so every day it climbs through the warning point and the
+# limit once. The automation looks at each change of the sensor and compares the old value with the new one:
+#
+#   warning   old < limit - warn <= new       (and new < limit: a jump over both only acts)
+#   limit     old < limit <= new
+#   again     old >= limit and the sensor grew by at least half a minute (a game is being played)
+#
+# A crossing happens once per day by itself. A restart of Home Assistant, a sensor that is unavailable for a while or
+# a changed attribute cannot repeat it: the old value is then not a number (or not smaller), so nothing matches. The
+# next day the sensor starts at 0 again and the same crossings happen again. (The sensor may lag up to a minute
+# behind midnight; the first change after it is a drop, which matches nothing.)
+#
+# "again": while a game runs the sensor grows by about a minute per update, so the action follows within about a
+# minute of the game starting. The late seconds of a game that was just closed arrive as a growth of 0.1 or so and
+# are ignored. If the action did not work (for example the console was busy), the next update tries it again.
+#
+# mode: queued. Every crossing counts (a warning and the action may follow each other closely), and a run is over
+# in a moment, so the queue never grows; "single" would drop a trigger with a warning in the log while a button
+# press is still waiting for the console.
+mode: queued
+max: 5
+max_exceeded: silent
+
+trigger_variables:
+  playtime_sensor: !input playtime_sensor
+
+triggers:
+  - trigger: state
+    entity_id: !input playtime_sensor
+
+variables:
+  limit: !input limit_minutes
+  warn_minutes: !input warn_minutes
+  action_type: !input action
+  buttons:
+    close: !input close_button
+    minimize: !input minimize_button
+    rest: !input rest_button
+  before: "{{ trigger.from_state.state | float(none) if trigger.from_state is not none else none }}"
+  now: "{{ trigger.to_state.state | float(none) if trigger.to_state is not none else none }}"
+  steady: "{{ before is not none and now is not none }}"
+  reached: "{{ steady and before < limit <= now }}"
+  playing_after_limit: "{{ steady and before >= limit and (now - before) | round(1) >= 0.5 }}"
+  warn_now: >-
+    {{ steady and warn_minutes > 0 and before < limit - warn_minutes <= now and now < limit }}
+
+conditions:
+  - condition: template
+    value_template: "{{ reached or playing_after_limit or warn_now }}"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ warn_now }}"
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_entity
+            data:
+              title: PS5
+              message: !input warn_message
+            continue_on_error: true
+    default:
+      - if:
+          - condition: template
+            value_template: "{{ buttons[action_type] == '' }}"
+        then:
+          - stop: "The button for the chosen action is not set in this automation."
+            error: true
+      - action: button.press
+        target:
+          entity_id: "{{ buttons[action_type] }}"
+        continue_on_error: true
+      - if:
+          - condition: template
+            value_template: "{{ playing_after_limit }}"
+        then:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_entity
+            data:
+              title: PS5
+              message: !input over_message
+            continue_on_error: true

@@ -97,6 +97,30 @@ async def test_v01_payload_shows_unknown_not_off(hass, fake) -> None:
     assert hass.states.get("sensor.ps5_payloads").state == "unknown"
 
 
+async def test_payloads_unknown_outside_on(hass, fake, freezer) -> None:
+    """Outside "on" the payload reports no payloads by design: unknown, not "none running"."""
+    await _setup(hass, fake)
+    fake.power_state = "going_to_rest"
+    await tick(hass, freezer, 11)
+    assert hass.states.get("binary_sensor.ps5_jailbreak_kstuff").state == "unknown"
+    assert hass.states.get("sensor.ps5_payloads").state == "unknown"
+    fake.power_state = "unknown"  # the console has the function but no reading yet: not "on"
+    await tick(hass, freezer, 11)
+    assert hass.states.get("binary_sensor.ps5_jailbreak_kstuff").state == "unknown"
+    fake.power_state = "on"
+    await tick(hass, freezer, 11)
+    assert hass.states.get("binary_sensor.ps5_jailbreak_kstuff").state == "on"
+    assert hass.states.get("sensor.ps5_payloads").state == "4"
+
+
+async def test_payloads_known_without_power_state_function(hass, fake, freezer) -> None:
+    fake.capabilities["power_state"] = False
+    fake.power_state = "unknown"  # such a console counts as "on"
+    await _setup(hass, fake)
+    assert hass.states.get("binary_sensor.ps5_jailbreak_kstuff").state == "on"
+    assert hass.states.get("sensor.ps5_payloads").state == "4"
+
+
 async def test_fan_switch_on_capped_by_stock(hass, fake) -> None:
     fake.fan_control = True
     fake.fan = {"target_c": None, "current_c": 70, "stock_c": 70}

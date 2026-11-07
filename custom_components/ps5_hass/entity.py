@@ -127,6 +127,24 @@ class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
             return None
         return self.coordinator.data.state.get("app")
 
+    @property
+    def payload_names(self) -> list[str] | None:
+        """Names of the running payload processes; None when unknown.
+
+        Unknown: a payload older than v0.2, or a console that is not "on" (the payload then
+        reports an empty list by design). A console without the power state function reports
+        "unknown" and counts as on.
+        """
+        if not self.payload_up:
+            return None
+        state = self.coordinator.data.state
+        power = state.get("power_state")
+        has_power_state = self.data.info.get("capabilities", {}).get("power_state", True)
+        if power is not None and power != "on" and (power != "unknown" or has_power_state):
+            return None
+        names = state.get("payloads")
+        return None if names is None else list(names)
+
 
 class Ps5PlaytimeEntity(CoordinatorEntity[PlaytimeCoordinator]):
     """Common base of the play time sensors.

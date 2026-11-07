@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.2
+
+- README: installation, updates and removal through the Marketplace of Home Assistant 2026.11; screenshots; network
+  requirements, troubleshooting and removal in more detail. No functional changes.
+
 ## v0.3.1
 
 - Console permissions: clearer answers on errors (console cannot show a code, not available, wrong number of digits,

@@ -24,9 +24,12 @@ Sony's own status query (to tell "rest mode" from "off").
 
 ## Installation
 
-**HACS:** HACS → ⋮ → **Custom repositories** → add `https://github.com/Phynix88/ps5-hass` with type
-*Integration* → search **PS5 (ps5-hass)** → **Download** → restart Home Assistant. Updates then show up in
-HACS and as an update entity.
+**Marketplace (Home Assistant 2026.11 and later):** Settings → **Marketplace** → **Add from link** → enter
+`Phynix88/ps5-hass` → **Add** → open **PS5 (ps5-hass)** → **Install** → restart Home Assistant. Updates show up under
+Settings → **Updates**.
+
+**HACS (Home Assistant 2026.10):** HACS → ⋮ → **Custom repositories** → add `https://github.com/Phynix88/ps5-hass`
+with type *Integration* → search **PS5 (ps5-hass)** → **Download** → restart Home Assistant.
 
 **Manually:** copy `custom_components/ps5_hass/` to `<config>/custom_components/ps5_hass/` and restart. To update,
 replace the folder and restart again.
@@ -247,7 +250,8 @@ limits*.
 1. Turn `switch.ps5_fan_control` off if you used it (the console gets its factory threshold back).
 2. While the console is on and the payload runs: Settings → Devices & services → PS5 → ⋮ → **Delete**. This frees
    the pairing slot on the console.
-3. HACS → PS5 (ps5-hass) → ⋮ → **Remove** (or delete `custom_components/ps5_hass/`), then restart Home Assistant.
+3. Marketplace → PS5 (ps5-hass) → ⋮ → **Uninstall** (HACS: ⋮ → **Remove**; manual install: delete
+   `custom_components/ps5_hass/`), then restart Home Assistant.
 
 ## Development
 

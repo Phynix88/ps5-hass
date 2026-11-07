@@ -184,6 +184,12 @@
       },
       "drive_other": {
         "name": "{name} storage free"
+      },
+      "playtime_today": {
+        "name": "Play time today"
+      },
+      "playtime_week": {
+        "name": "Play time this week"
       }
     },
     "image": {

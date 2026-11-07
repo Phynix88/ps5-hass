@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
@@ -17,6 +17,9 @@ from homeassistant.util import dt as dt_util
 from .api import ApiError, AuthError, CannotConnect, Ps5HassClient
 from .const import APPS_INTERVAL, CONF_INFO, DDP_PORT, DOMAIN, HOLD_SECONDS, STATE_INTERVAL
 from .ddp import ddp_status
+
+if TYPE_CHECKING:
+    from .playtime import PlaytimeCoordinator
 
 _LOGGER = logging.getLogger(__package__)
 
@@ -44,6 +47,7 @@ class Ps5HassData:
     state: StateCoordinator
     apps: AppsCoordinator
     info: dict[str, Any]
+    playtime: PlaytimeCoordinator | None = None  # only with capabilities.playtime
 
 
 type Ps5HassConfigEntry = ConfigEntry[Ps5HassData]

@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .api import ApiError, AuthError, CannotConnect, Ps5HassError
 from .const import DEVICE_NAME, DOMAIN, MANUFACTURER
 from .coordinator import Ps5HassConfigEntry, Ps5HassData, StateCoordinator
+from .playtime import PlaytimeCoordinator
 
 # payload error codes with their own message; everything else -> request_failed
 KNOWN_ERRORS = {
@@ -80,6 +81,18 @@ def display_name(apps: list[dict[str, Any]] | None, title_id: str, fallback: str
     return fallback
 
 
+def device_info(entry: Ps5HassConfigEntry) -> DeviceInfo:
+    """The console's device."""
+    info = entry.runtime_data.info
+    return DeviceInfo(
+        identifiers={(DOMAIN, info["device_id"])},
+        name=DEVICE_NAME,
+        manufacturer=MANUFACTURER,
+        model=info.get("model") or None,
+        sw_version=info.get("firmware") or None,
+    )
+
+
 class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
     """Common base: one device per console, available while the payload answers."""
 
@@ -88,16 +101,8 @@ class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
     def __init__(self, entry: Ps5HassConfigEntry, key: str) -> None:
         super().__init__(entry.runtime_data.state)
         self.entry = entry
-        info = entry.runtime_data.info
-        device_id = info["device_id"]
-        self._attr_unique_id = f"{device_id}_{key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_id)},
-            name=DEVICE_NAME,
-            manufacturer=MANUFACTURER,
-            model=info.get("model") or None,
-            sw_version=info.get("firmware") or None,
-        )
+        self._attr_unique_id = f"{entry.runtime_data.info['device_id']}_{key}"
+        self._attr_device_info = device_info(entry)
 
     @property
     def data(self) -> Ps5HassData:
@@ -117,3 +122,26 @@ class Ps5HassEntity(CoordinatorEntity[StateCoordinator]):
         if not self.payload_up:
             return None
         return self.coordinator.data.state.get("app")
+
+
+class Ps5PlaytimeEntity(CoordinatorEntity[PlaytimeCoordinator]):
+    """Common base of the play time sensors.
+
+    Available once the first /playtime answer is in. Later outages of the payload do not
+    make it unavailable: the console being off is the normal case, play time is a total
+    that is still true, and a gap would only break the long-term statistics.
+    """
+
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: Ps5HassConfigEntry, key: str) -> None:
+        playtime = entry.runtime_data.playtime
+        assert playtime is not None
+        super().__init__(playtime)
+        self.entry = entry
+        self._attr_unique_id = f"{entry.runtime_data.info['device_id']}_{key}"
+        self._attr_device_info = device_info(entry)
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)

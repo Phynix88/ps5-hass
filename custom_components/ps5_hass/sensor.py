@@ -23,7 +23,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import Ps5HassConfigEntry, app_by_id
-from .entity import Ps5HassEntity
+from .entity import Ps5HassEntity, Ps5PlaytimeEntity
+from .playtime import games
 
 
 def _free_gib(state: dict[str, Any]) -> float | None:
@@ -139,6 +140,24 @@ async def async_setup_entry(
     entry.async_on_unload(entry.runtime_data.state.async_add_listener(add_new_drives))
     add_new_drives()
 
+    playtime = entry.runtime_data.playtime
+    if playtime is None:
+        return
+    async_add_entities([Ps5PlaytimeSensor(entry, "today"), Ps5PlaytimeSensor(entry, "week")])
+
+    # One sensor per game, created when the game first shows up in /playtime.
+    known_games: set[str] = set()
+
+    @callback
+    def add_new_games() -> None:
+        new = [g["title_id"] for g in games(playtime.data) if g["title_id"] not in known_games]
+        known_games.update(new)
+        if new:
+            async_add_entities(Ps5GamePlaytimeSensor(entry, title_id) for title_id in new)
+
+    entry.async_on_unload(playtime.async_add_listener(add_new_games))
+    add_new_games()
+
 
 class Ps5Sensor(Ps5HassEntity, SensorEntity):
     entity_description: Ps5SensorDescription
@@ -205,6 +224,65 @@ class Ps5DriveSensor(Ps5HassEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         info = self._info()
         return {"total_gib": _gib(info["total_mb"]) if info else None}
+
+
+class _PlaytimeMinutes(Ps5PlaytimeEntity, SensorEntity):
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_suggested_display_precision = 0
+
+
+class Ps5PlaytimeSensor(_PlaytimeMinutes):
+    """Game time today or this week, in HA's time zone (resets at midnight / on Monday)."""
+
+    def __init__(self, entry: Ps5HassConfigEntry, period: str) -> None:
+        super().__init__(entry, f"playtime_{period}")
+        self._period = period
+        self._attr_translation_key = f"playtime_{period}"
+
+    @property
+    def suggested_object_id(self) -> str:
+        return f"playtime {self._period}"  # sensor.ps5_playtime_today
+
+    @property
+    def native_value(self) -> float | None:
+        seconds = (self.coordinator.data or {}).get(f"{self._period}_s")
+        return None if seconds is None else round(seconds / 60, 1)
+
+
+class Ps5GamePlaytimeSensor(_PlaytimeMinutes):
+    """Total play time of one game; long-term statistics give the per-day and per-week values."""
+
+    def __init__(self, entry: Ps5HassConfigEntry, title_id: str) -> None:
+        super().__init__(entry, f"playtime_{title_id}")
+        self._title_id = title_id
+
+    @property
+    def suggested_object_id(self) -> str:
+        return f"playtime {self._title_id.lower()}"  # language independent
+
+    def _title(self) -> dict[str, Any] | None:
+        return next((t for t in games(self.coordinator.data) if t["title_id"] == self._title_id), None)
+
+    @property
+    def name(self) -> str:
+        title = self._title()
+        return title["name"] if title else self._title_id
+
+    @property
+    def native_value(self) -> float | None:
+        title = self._title()
+        return None if title is None else round(title["total_s"] / 60, 1)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        title = self._title()
+        console_s = title.get("console_total_s") if title else None
+        return {
+            "title_id": self._title_id,
+            "console_total_min": None if console_s is None else round(console_s / 60, 1),
+        }
 
 
 class Ps5RunningAppSensor(Ps5HassEntity, SensorEntity):

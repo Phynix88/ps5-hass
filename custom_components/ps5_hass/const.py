@@ -7,6 +7,7 @@ DEFAULT_PORT: Final = 8181
 DDP_PORT: Final = 9302
 STATE_INTERVAL: Final = 10  # s
 APPS_INTERVAL: Final = 600  # s
+PLAYTIME_INTERVAL: Final = 60  # s
 HOLD_SECONDS: Final = 30  # keep last data this long before asking DDP
 CONF_TOKEN: Final = "token"
 CONF_CLIENT_ID: Final = "client_id"

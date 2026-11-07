@@ -16,6 +16,7 @@ from .coordinator import (
     StateCoordinator,
     clean_info,
 )
+from .playtime import PlaytimeCoordinator
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -54,7 +55,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> b
     entry.runtime_data = Ps5HassData(client, state, apps, info)
     await apps.async_refresh()
     await state.async_refresh()
-    # Coordinators only poll while someone listens; keep both polling even if
+    if info.get("capabilities", {}).get("playtime"):
+        playtime = PlaytimeCoordinator(hass, entry, client)
+        entry.runtime_data.playtime = playtime
+        entry.async_on_unload(playtime.follow(state))
+        await playtime.async_refresh()
+        entry.async_on_unload(playtime.async_add_listener(lambda: None))
+    # Coordinators only poll while someone listens; keep them polling even if
     # every entity is disabled (state changes drive the app events).
     entry.async_on_unload(apps.async_add_listener(lambda: None))
     entry.async_on_unload(state.async_add_listener(lambda: None))

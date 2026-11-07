@@ -184,6 +184,12 @@
       },
       "drive_other": {
         "name": "Speicher {name} frei"
+      },
+      "playtime_today": {
+        "name": "Spielzeit heute"
+      },
+      "playtime_week": {
+        "name": "Spielzeit diese Woche"
       }
     },
     "image": {

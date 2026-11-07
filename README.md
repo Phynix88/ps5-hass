@@ -24,6 +24,8 @@ Sony's own status query (to tell "rest mode" from "off").
 
 ## Installation
 
+[![Open in the Home Assistant Marketplace](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Phynix88&repository=ps5-hass&category=integration)
+
 **Marketplace (Home Assistant 2026.11 and later):** Settings → **Marketplace** → **Add from link** → enter
 `Phynix88/ps5-hass` → **Add** → open **PS5 (ps5-hass)** → **Install** → restart Home Assistant. Updates show up under
 Settings → **Updates**.
@@ -223,7 +225,9 @@ limits*.
 
 ## Limits
 
-- Waking the console from rest mode or power off is not possible (it needs Remote Play pairing with a PSN login).
+- ps5-hass cannot wake the console. The [PlayStation 5 integration](https://github.com/SH1FT-W/playstation-5) wakes
+  it from rest mode through Remote Play pairing and can run alongside ps5-hass (separate integration, separate
+  entities). From power off, only the power button or the controller's PS button switches it on.
 - No controller input, no screenshots, no controller battery (the console refuses pad access from a payload).
 - PS4 titles are listed with their title id as name.
 - The fan threshold is tested on FW 13.60 (CFI-2116) only.

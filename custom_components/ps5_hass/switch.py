@@ -180,7 +180,7 @@ class Ps5PayloadSwitch(Ps5PayloadEntity, SwitchEntity):
             # changed elsewhere in the meantime: the refresh below shows how it is
         except Ps5HassError as err:
             raise_api_error(err)
-        await self.coordinator.async_refresh()
+        await self.coordinator.async_refresh_after_action()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._set(True)

@@ -14,8 +14,8 @@ Sony's own status query (to tell "rest mode" from "off").
 ## Requirements
 
 - A PS5 with a jailbreak and the **ps5-hass payload** loaded (see the payload's README; it can be installed through
-  the Payload Manager and put into the autoload). Payload **v0.4.1 or later** (v0.4.0 can hang a console when a
-  payload is stopped during a game) for everything described here: play time, payload switches, keeping awake,
+  the Payload Manager and put into the autoload). Payload **v0.4.2 or later** (older ones can hang a console when a
+  payload is switched with a game in memory) for everything described here: play time, payload switches, keeping awake,
   minimising, chip power, external drives, and rest mode, power off and the fan without any setting. A **v0.3**
   payload still works, without these new features (their entities do not appear),
   and rest mode, power off and the fan only if they were allowed on the console before. v0.1.0 and v0.2.0 also lack
@@ -154,10 +154,12 @@ Manager's version. The switches are unavailable while the Payload Manager does n
 console, and the console on).
 
 - **Only while no game or app runs.** Stopping or starting a payload during a game can hang the console, so the
-  payload (v0.4.1 or later; update from v0.4.0) refuses with "Close the running game or app on the PS5 first."
-  A game you minimised counts as not running (the console reports none) but is still in memory: close it first.
-- **Protected payloads never get a switch:** kstuff, etaHEN, the ELF loader, the Payload Manager, ps5-hass itself,
-  CheatRunner (any cheat payload) and ps5debug can be neither started nor stopped from Home Assistant.
+  payload (v0.4.1 or later) refuses with "Close the running game or app on the PS5 first."
+  The payload (v0.4.2 or later) also counts a game you minimised, because it is still in memory: close it first.
+  This is what makes CheatRunner controllable: it attaches to the running game, so it can be started and stopped
+  only with no game in memory.
+- **Protected payloads never get a switch:** kstuff, etaHEN, the ELF loader, the Payload Manager, ps5-hass itself
+  and ps5debug can be neither started nor stopped from Home Assistant.
 - Stopping a payload ends its process. A payload that was updated in the Payload Manager keeps its switch.
 - The binary sensors above and `sensor.ps5_payloads` show what runs; the switches change it.
 

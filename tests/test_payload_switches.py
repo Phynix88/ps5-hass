@@ -245,21 +245,67 @@ async def test_running_app_refuses_start_and_stop(hass: HomeAssistant, fake) -> 
     assert hass.states.get(FTPSRV).state == "on"
 
 
-async def test_cheat_payloads_never_get_a_switch(hass: HomeAssistant, fake, freezer) -> None:
-    # CheatRunner (any cheat payload) and ps5debug are protected since payload v0.4.1
+async def test_cheatrunner_has_a_switch_ps5debug_has_none(hass: HomeAssistant, fake, freezer) -> None:
+    # CheatRunner is controllable again since payload v0.4.2 (only with no game in memory);
+    # ps5debug stays protected
     fake.payload_list.append({"slot": "repo/CheatRunner@22222222", "name": "CheatRunner", "version": "0.18.1",
-                              "running": True, "protected": True})
+                              "running": True, "protected": False})
     await _setup(hass, fake)
-    assert hass.states.get("switch.ps5_payload_cheatrunner") is None
+    assert hass.states.get("switch.ps5_payload_cheatrunner").state == "on"
     fake.payload_list.append({"slot": "repo/ps5debug@33333333", "name": "ps5debug", "version": "",
                               "running": False, "protected": True})
     await tick(hass, freezer, 31)
-    assert _payload_switches(hass) == {FTPSRV, WEBSRV}
-    # an existing payload that is now listed as CheatRunner keeps its entity but is unavailable
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV, "switch.ps5_payload_cheatrunner"}
+    # an existing payload that is now listed as ps5debug keeps its entity but is unavailable
     # (the payload protects it by its name; the fake does the same)
-    fake.payload_list[1]["name"] = "CheatRunner"
+    fake.payload_list[1]["name"] = "ps5debug"
     await tick(hass, freezer, 31)
     assert hass.states.get(WEBSRV).state == "unavailable"
+
+
+async def test_second_refresh_after_5_s(hass: HomeAssistant, fake, freezer) -> None:
+    # right after a start the Payload Manager does not list the new process yet
+    fake.payload_lag = 1
+    await _setup(hass, fake)
+    before = len(_requests(fake, "/payloads"))
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    assert len(_requests(fake, "/payloads")) == before + 1  # refreshed at once
+    assert hass.states.get(FTPSRV).state == "off"  # not listed as running yet
+    await tick(hass, freezer, 4)
+    assert len(_requests(fake, "/payloads")) == before + 1  # not yet
+    await tick(hass, freezer, 2)  # 5 s after the start
+    assert len(_requests(fake, "/payloads")) == before + 2
+    assert hass.states.get(FTPSRV).state == "on"
+    # the same for a stop
+    await hass.services.async_call("switch", "turn_off", {"entity_id": FTPSRV}, blocking=True)
+    assert hass.states.get(FTPSRV).state == "on"
+    await tick(hass, freezer, 6)
+    assert hass.states.get(FTPSRV).state == "off"
+
+
+async def test_second_refresh_is_cancelled_on_unload(hass: HomeAssistant, fake, freezer) -> None:
+    fake.payload_lag = 1
+    entry = await _setup(hass, fake)
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    seen = len(_requests(fake, "/payloads"))
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 10)
+    assert len(_requests(fake, "/payloads")) == seen
+
+
+async def test_minimised_game_is_refused_by_the_payload(hass: HomeAssistant, fake) -> None:
+    # no running app in the state (the console reports none), but the payload sees the game in memory
+    await _setup(hass, fake)
+    fake.minimised = True
+    for service in ("turn_on", "turn_off"):
+        with pytest.raises(HomeAssistantError) as err:
+            await hass.services.async_call("switch", service, {"entity_id": FTPSRV}, blocking=True)
+        assert err.value.translation_key == "app_running"
+    assert fake.pldmgr_actions == 0
+    fake.minimised = False
+    await hass.services.async_call("switch", "turn_on", {"entity_id": FTPSRV}, blocking=True)
+    assert fake.pldmgr_actions == 1
 
 
 async def test_known_running_app_refuses_without_a_request(hass: HomeAssistant, fake, freezer) -> None:

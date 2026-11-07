@@ -8,12 +8,13 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import ApiError, AuthError, CannotConnect, Ps5HassClient
-from .const import DOMAIN, PAYLOADS_INTERVAL
+from .const import DOMAIN, PAYLOADS_INTERVAL, PAYLOADS_RECHECK_DELAY
 
 if TYPE_CHECKING:
     from .coordinator import ConsoleState, StateCoordinator
@@ -61,6 +62,30 @@ class PayloadsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self.state: StateCoordinator | None = None
         self._seen: bool | None = None
+        self._recheck: CALLBACK_TYPE | None = None
+
+    async def async_refresh_after_action(self) -> None:
+        """Refresh at once and again after a few seconds, after a payload was started or stopped.
+
+        Right after a start the Payload Manager does not list the new process yet, so the
+        first answer can still show the old state.
+        """
+        await self.async_refresh()
+        self._cancel_recheck()
+        self._recheck = async_call_later(self.hass, PAYLOADS_RECHECK_DELAY, self._recheck_now)
+
+    async def _recheck_now(self, _now: object) -> None:
+        self._recheck = None
+        await self.async_refresh()
+
+    def _cancel_recheck(self) -> None:
+        if self._recheck is not None:
+            self._recheck()
+            self._recheck = None
+
+    async def async_shutdown(self) -> None:
+        self._cancel_recheck()
+        await super().async_shutdown()
 
     def follow(self, state: StateCoordinator) -> Callable[[], None]:
         """React to the console going away or coming back; returns the unsubscribe."""

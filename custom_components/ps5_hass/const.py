@@ -9,6 +9,7 @@ STATE_INTERVAL: Final = 10  # s
 APPS_INTERVAL: Final = 600  # s
 PLAYTIME_INTERVAL: Final = 60  # s
 PAYLOADS_INTERVAL: Final = 30  # s
+PAYLOADS_RECHECK_DELAY: Final = 5  # s, second look after a start or stop
 HOLD_SECONDS: Final = 30  # keep last data this long before asking DDP
 CONF_TOKEN: Final = "token"
 CONF_CLIENT_ID: Final = "client_id"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
@@ -16,8 +18,10 @@ from .coordinator import (
     StateCoordinator,
     clean_info,
 )
-from .payloads import PayloadsCoordinator
+from .payloads import PayloadsCoordinator, payload_switches_supported
 from .playtime import PlaytimeCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -63,7 +67,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: Ps5HassConfigEntry) -> b
         await playtime.async_refresh()
         entry.async_on_unload(playtime.async_add_listener(lambda: None))
     # The key is there from v0.4 on; its value stays false until the first /payloads call.
-    if "payload_control" in info.get("capabilities", {}):
+    if "payload_control" in info.get("capabilities", {}) and not payload_switches_supported(info):
+        # v0.4.0 and v0.4.1 do not see a minimised game: no switches, no /payloads requests
+        _LOGGER.info("PS5 payload %s: update the payload to v0.4.2 for payload switches", info.get("version"))
+    elif "payload_control" in info.get("capabilities", {}):
         payloads = PayloadsCoordinator(hass, entry, client)
         entry.runtime_data.payloads = payloads
         entry.async_on_unload(payloads.follow(state))

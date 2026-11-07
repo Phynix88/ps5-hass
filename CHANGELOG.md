@@ -7,6 +7,8 @@ still be switched that way.
 
 - Payload switches work only with no game in memory, a minimised one included (payload v0.4.2); otherwise "Close
   the running game or app on the PS5 first."
+- Payload switches are only created for payload v0.4.2 or later (v0.4.0 and v0.4.1 do not see a minimised game);
+  with an older one the log says to update the payload. Dev builds and unreadable versions count as new enough.
 - CheatRunner gets a switch again, under that rule. ps5debug and the other protected payloads still get none.
 - After a start or stop the switch is refreshed at once and again after 5 s, so it shows the new state without
   waiting for the next 30 s poll (right after a start the Payload Manager does not list the new process yet).

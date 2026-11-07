@@ -153,9 +153,11 @@ tomorrow; closing it loses unsaved progress.
 Manager's version. The switches are unavailable while the Payload Manager does not answer (it must be running on the
 console, and the console on).
 
-- **Only while no game or app runs.** Stopping or starting a payload during a game can hang the console, so the
+- **Only while no game or app runs or is in memory.** Stopping or starting a payload during a game can hang the console, so the
   payload (v0.4.1 or later) refuses with "Close the running game or app on the PS5 first."
   The payload (v0.4.2 or later) also counts a game you minimised, because it is still in memory: close it first.
+  Payload switches only exist with payload v0.4.2 or later; with v0.4.0 or v0.4.1 there are none (they do not
+  see a minimised game), and the log says to update the payload.
   This is what makes CheatRunner controllable: it attaches to the running game, so it can be started and stopped
   only with no game in memory.
 - **Protected payloads never get a switch:** kstuff, etaHEN, the ELF loader, the Payload Manager, ps5-hass itself

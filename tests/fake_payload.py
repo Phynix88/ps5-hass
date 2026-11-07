@@ -75,7 +75,7 @@ class FakePayload:
             "soc_power": True, "playtime": True,
         }
         self.has_user = True
-        self.version = "0.1.0"
+        self.version = "0.4.2"
         self.standby_calls = 0
         self.fail: dict[str, tuple[int, dict[str, Any]]] = {}  # path -> once
         self.calls: list[tuple[str, str, dict[str, str], Any]] = []

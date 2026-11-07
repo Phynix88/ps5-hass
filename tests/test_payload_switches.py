@@ -219,6 +219,41 @@ async def test_nothing_for_an_older_payload(hass: HomeAssistant, fake, freezer, 
     assert not [c for c in fake.calls if c[1].startswith("/payloads")]
 
 
+@pytest.mark.parametrize("version", ["v0.4.0", "0.4.1", "v0.4.1", "0.3.9", "v0.1.0"])
+async def test_no_switches_before_payload_0_4_2(hass: HomeAssistant, fake, freezer, caplog, version: str) -> None:
+    # v0.4.0 and v0.4.1 do not see a minimised game: no switch, and /payloads is not even asked
+    fake.version = version
+    await _setup(hass, fake)
+    await tick(hass, freezer, 31)
+    assert _payload_switches(hass) == set()
+    assert not [c for c in fake.calls if c[1].startswith("/payloads")]
+    assert caplog.text.count("update the payload to v0.4.2 for payload switches") == 1
+
+
+@pytest.mark.parametrize("version", ["v0.4.2", "0.4.2", "v0.4.2-test", "0.4.3", "v0.5.0", "v1.0.0", "dev", "host", ""])
+async def test_switches_from_payload_0_4_2_and_for_dev_builds(
+    hass: HomeAssistant, fake, caplog, version: str
+) -> None:
+    fake.version = version
+    await _setup(hass, fake)
+    assert _payload_switches(hass) == {FTPSRV, WEBSRV}
+    assert "update the payload to v0.4.2" not in caplog.text
+
+
+def test_payload_switches_supported() -> None:
+    from custom_components.ps5_hass.payloads import payload_switches_supported
+
+    for old in ("v0.4.1", "0.4.0", "v0.3.0", "0.4.1-test"):
+        assert not payload_switches_supported({"version": old}), old
+    for new in ("v0.4.2", "0.4.2-test", "v0.10.0", "v0.4.10", "dev", "host", "", None, 5):
+        assert payload_switches_supported({"version": new}), new
+    assert payload_switches_supported({})  # an old entry without a version
+    from custom_components.ps5_hass.coordinator import info_needs_reload
+    # an update of the payload across the limit changes the entities
+    assert info_needs_reload({"version": "v0.4.1"}, {"version": "v0.4.2"})
+    assert not info_needs_reload({"version": "v0.4.2"}, {"version": "v0.4.3"})
+
+
 def test_payload_control_flip_is_no_reload() -> None:
     from custom_components.ps5_hass.coordinator import info_needs_reload
 

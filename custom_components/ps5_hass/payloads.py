@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+from awesomeversion import AwesomeVersion, AwesomeVersionException
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -22,6 +24,27 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__package__)
 
 NONE: dict[str, Any] = {"available": False, "payloads": []}
+
+# Payloads before v0.4.2 do not see a game that is minimised (still in memory) and would
+# switch payloads under it, which hung a console.
+MIN_PAYLOAD_VERSION = "0.4.2"
+_VERSION_CORE = re.compile(r"v?(\d+(?:\.\d+)*)")
+
+
+def payload_switches_supported(info: dict[str, Any]) -> bool:
+    """False for a payload older than v0.4.2.
+
+    "dev" and "host" builds, anything unparsable and a missing version count as new
+    enough; a suffix such as "-test" is ignored.
+    """
+    version = info.get("version")
+    match = _VERSION_CORE.match(version) if isinstance(version, str) else None
+    if match is None:
+        return True
+    try:
+        return AwesomeVersion(match.group(1)) >= AwesomeVersion(MIN_PAYLOAD_VERSION)
+    except AwesomeVersionException:
+        return True
 
 
 def payload_key(slot: str) -> str:

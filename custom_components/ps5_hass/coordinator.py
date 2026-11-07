@@ -18,6 +18,8 @@ from .api import ApiError, AuthError, CannotConnect, Ps5HassClient
 from .const import APPS_INTERVAL, CONF_INFO, DDP_PORT, DOMAIN, HOLD_SECONDS, STATE_INTERVAL
 from .ddp import ddp_status
 
+from .payloads import payload_switches_supported
+
 if TYPE_CHECKING:
     from .payloads import PayloadsCoordinator
     from .playtime import PlaytimeCoordinator
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__package__)
 
 # /info fields whose change needs a reload (entities depend on them)
-RELOAD_FIELDS = ("power_actions", "capabilities")
+RELOAD_FIELDS = ("power_actions", "capabilities", "version")
 
 # /state.power_state values that mean rest mode (payload v0.4)
 REST_STATES = ("going_to_rest", "rest")
@@ -71,6 +73,9 @@ def _reload_view(info: dict[str, Any], field: str) -> Any:
         # payload_control only follows the payload's first /payloads call (false before it):
         # whether the key exists is what the entities depend on, not its value
         return {k: (True if k == "payload_control" else v) for k, v in value.items()}
+    if field == "version":
+        # only crossing the payload switch limit (v0.4.2) changes entities
+        return payload_switches_supported(info)
     return value
 
 
